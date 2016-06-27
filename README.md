@@ -18,21 +18,20 @@ There are two ways to install MMGenLive:
 * download a prebuilt binary and copy it to a USB stick, or
 * build the system yourself using the automated shell script (Linux-only).
 
-### Install MMGenLive from a prebuilt binary:
-* Download the latest \*system.tgz file from the binaries directory.
+### Install MMGenLive from a prebuilt binary [coming soon]:
+* Download the latest \*img.tgz file from [TBA].
 * Insert a USB stick into your computer.
 
 > #### If you’re running Linux:
 
 > * Determine your USB stick’s device name.  This can be done with the command
 > `dmesg | tail`, for example.
-> * Execute the command `zcat *.system.tgz > /dev/sdX`, replacing `sdX` with
->   your USB stick’s device name.
+> * Execute the command `zcat *.img.tgz > /dev/sdX`, replacing `sdX` with your
+>   USB stick’s device name.
 
 > #### If you’re running Windows:
 
-> * Unzip the \*system.tgz file using an archiving program such as WinZIP or
->   PKZIP.
+> * Unzip the \*img.tgz file using an archiving program such as WinZIP or PKZIP.
 > * Follow [these instructions][1], replacing “SD card” with “USB stick”
 >   and “image” with the file you just unzipped.
 
@@ -46,8 +45,8 @@ There are two ways to install MMGenLive:
             git clone https://github.com/mmgen/mmgen.git
             git clone https://github.com/mmgen/MMGenLive.git
 
-* Download the latest extras files from the extras directory (currently
-  Ubuntu xenial) and place them in the MMGenLive repository root.
+* Download the [latest extras files][2] (currently Ubuntu xenial) and place them
+  in the MMGenLive repository root.
 
 * Build and install the MMGenLive system:
 
@@ -61,5 +60,6 @@ There are two ways to install MMGenLive:
 Donate: 15TLdmi5NYLdqmtCqczUs5pBPkJDXRs83w
 
 [1]: https://www.raspberrypi.org/documentation/installation/installing-images/windows.md
+[2]: https://github.com/mmgen/MMGenLive/releases/tag/extras-v0.0.1
 [4]: https://bitcointalk.org/index.php?topic=567069.0
 [5]: https://github.com/mmgen/mmgen/wiki/MMGen-Signing-Key
