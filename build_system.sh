@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# build_system.sh: build a bootable Linux system on a USB stick with the
+# MMGen Bitcoin wallet preinstalled (https://github.com/mmgen/mmgen).
+#
 # mmgen = Multi-Mode GENerator, command-line Bitcoin cold storage solution
 # Copyright (C)2013-2016 Philemon <mmgen-py@yandex.com>
 #
