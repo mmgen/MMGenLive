@@ -47,13 +47,13 @@ tracking/transacting wallet with a full or pruned blockchain.
 
             git clone https://github.com/mmgen/mmgen.git
             git clone https://github.com/mmgen/MMGenLive.git
+            cd MMGenLive
 
 * Download the [latest extras files][2] and place them in the MMGenLive
   repository root.
 
 * Build and install the MMGenLive system:
 
-            cd MMGenLive
             sudo ./build_system.sh
 
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
