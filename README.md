@@ -20,7 +20,7 @@ tracking/transacting wallet with a full or pruned blockchain.
 
 ## Install MMGenLive from a prebuilt binary:
 * Download the latest zipped boot image file for your architecture from the
-  [bootimages release directory][3].
+  [bootimages download directory][3].
 * Insert a USB stick into your computer.
 
 > ### If you’re running Linux:
