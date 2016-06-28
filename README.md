@@ -1,7 +1,7 @@
 # MMGenLive
 
-MMGenLive is a fully functional Linux system on a USB stick with the MMGen
-online/offline Bitcoin wallet and related programs preinstalled.
+MMGenLive is a fully functional Linux system on a USB stick with the [MMGen
+online/offline Bitcoin wallet][6] and related programs preinstalled.
 
 MMGenLive gives you, out of the box:
 
@@ -67,3 +67,4 @@ Donate: 15TLdmi5NYLdqmtCqczUs5pBPkJDXRs83w
 [3]: https://github.com/mmgen/MMGenLive/releases/tag/bootimages
 [4]: https://bitcointalk.org/index.php?topic=567069.0
 [5]: https://github.com/mmgen/mmgen/wiki/MMGen-Signing-Key
+[6]: https://github.com/mmgen/mmgen/
