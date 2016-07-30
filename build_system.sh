@@ -88,6 +88,7 @@ declare -A DESCS=(
 	[usb_install_extras_tty]='install console extras'
 	[usb_pre_initramfs]='do pre-update-initramfs configurations on USB drive'
 	[usb_update_initramfs]='generate the init RAM filesystem'
+	[usb_update_mmgen]='update the MMGen installation on the USB stick'
 
 	[depclean]='keep all built and downloaded files; reset progress state to zero'
 	[clean]='delete all built files but keep archives of bootstrap and chroot system; reset progress state to zero'
@@ -317,6 +318,10 @@ function die() {
 		clean_exit
 	fi
 }
+function exec_or_die_print() {
+	echo "Executing: $@"
+	exec_or_die "$@"
+}
 function exec_or_die() {
 	if [ "$SIMULATE" -o "$SIMULATE_IN_CHROOT" -a "$SCRIPT" == 'setup.sh' ]; then
 		echo -e "\nWould execute: $YELLOW$1$RESET"
@@ -341,10 +346,9 @@ function delete_chroot() {
 }
 function build_mmgen_sdist() {
 	dbecho "=======> $FUNCNAME"
-	exec_or_die '(cd ../mmgen && rm -rf build test/tmp*)'
-	exec_or_die '(cd ../mmgen && ./setup.py -q clean)'
-	msg 'Executing: cd ../mmgen && ./setup.py -q sdist'
-	exec_or_die '(cd ../mmgen && ./setup.py -q sdist 2>/dev/null)'
+	exec_or_die_print '(cd ../mmgen && rm -rf build test/tmp*)'
+	exec_or_die_print '(cd ../mmgen && ./setup.py -q clean)'
+	exec_or_die_print '(cd ../mmgen && ./setup.py -q sdist 2>/dev/null)'
 }
 function apt_get_update () {
 	if [ "$TARGET" == "$FUNCNAME" ]; then # called by user, for chroot system
@@ -393,6 +397,11 @@ function backup_chroot_system() {
 function copy_mmgen_sdist() {
 	exec_or_die "rm -f $CHROOT_DIR/setup/$MMGEN_ARCHIVE_NAME"
 	exec_or_die "cp -v ../mmgen/dist/$MMGEN_ARCHIVE_NAME $CHROOT_DIR/setup"
+}
+function copy_mmgen_sdist_usb() {
+	DEST="$USB_MNT_DIR/home/$USER/src"
+	exec_or_die_print "rm -rf $DEST/*"
+	exec_or_die_print "cp ../mmgen/dist/$MMGEN_ARCHIVE_NAME $DEST"
 }
 function run_setup_chroot() { run_setup_in_chroot $CHROOT_DIR $@; }
 function run_setup_usb()    { run_setup_in_chroot $USB_MNT_DIR $@; }
@@ -1090,7 +1099,7 @@ set desc=\"$PROJ_NAME ${RELEASES[$RELEASE]}\" # release desc contains single quo
 
 menuentry \"\${desc} \${passwd_info}\" \${classinfo} {
 	echo \"Loading vmlinuz-\${kver}...\"
-	linux /vmlinuz-\${kver} \${kcryptoargs} \${kargs_console}
+	linux /vmlinuz-\${kver} \${kcryptoargs} \${kargs_gfx}
 	echo \"Loading initrd.img-\${kver}...\"
 	initrd /initrd.img-\${kver}
 }"
@@ -1116,6 +1125,12 @@ function usb_gen_locales() {
 }
 function usb_config_misc() {
 	depends 'location=usb' mount_root && return; usb_install $FUNCNAME
+}
+function usb_update_mmgen() {
+	build_mmgen_sdist
+	mount_root
+	copy_mmgen_sdist_usb
+	usb_install $FUNCNAME
 }
 function usb_install() {
 	ARGS="RELEASE=$RELEASE USB_DEV=$USB_DEV USB_P1=$USB_P1 USB_P2=$USB_P2 USB_DEV_TYPE=$USB_DEV_TYPE"
@@ -1147,6 +1162,13 @@ function check_extras_gfx_present() {
 	fi
 }
 
+function setup_sh_usb_update_mmgen() {
+	DEST="/home/$USER/src"
+	exec_or_die_print "chown $USER.$USER $DEST/*"
+	exec_or_die_print "(cd $DEST; su $USER -c 'tar xf $MMGEN_ARCHIVE_NAME')"
+	exec_or_die_print "rm $DEST/$MMGEN_ARCHIVE_NAME"
+	exec_or_die_print "(cd $DEST/${MMGEN_ARCHIVE_NAME/.tar.gz}; python ./setup.py --quiet install)"
+}
 function setup_sh_usb_config_misc() {
 	exec_or_die 'systemctl disable NetworkManager'
 	exec_or_die 'systemctl disable wpa_supplicant'
