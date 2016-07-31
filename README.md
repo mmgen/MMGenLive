@@ -16,7 +16,7 @@ tracking/transacting wallet with a full or pruned blockchain.
 ### There are two ways to install and run MMGenLive:
 
 * download a prebuilt bootable image; or
-* build the bootable image yourself using the automated shell script (Linux-only).
+* build the bootable image yourself using the automated shell script (Linux only).
 
 ## Run MMGenLive from a prebuilt bootable image:
 * Download the latest zipped boot image file for your architecture from the
