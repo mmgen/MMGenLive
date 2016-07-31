@@ -16,7 +16,7 @@ tracking/transacting wallet with a full or pruned blockchain.
 ### There are two ways to install and run MMGenLive:
 
 * download a prebuilt bootable image; or
-* build the system yourself using the automated shell script (Linux-only).
+* build the bootable image yourself using the automated shell script (Linux-only).
 
 ## Run MMGenLive from a prebuilt bootable image:
 * Download the latest zipped boot image file for your architecture from the
@@ -41,7 +41,7 @@ tracking/transacting wallet with a full or pruned blockchain.
   to unlock the disk.  Enter the password `mmgen`.  After the graphical
   interface appears, follow the instructions on the terminal screen.
 
-## Install MMGenLive using the automated shell script (Linux only):
+## Build the MMGenLive USB image using the automated shell script (Linux only):
 
 * Clone the mmgen and MMGenLive repositories:
 
