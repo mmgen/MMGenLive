@@ -72,6 +72,7 @@ declare -A DESCS=(
 	[umount_vfs_chroot]='unmount virtual filesystems on chroot dir'
 	[umount_vfs_usb]='unmount virtual filesystems on USB drive'
 	[usbimg2file]='copy the USB disk image to file'
+	[usbimg2filegzip]='copy the USB disk image to gzipped file'
 
 	[install_grub]='install the GRUB boot loader'
 	[install_kernel]='install the Linux kernel'
@@ -674,6 +675,10 @@ exit 0 # MMGen'
 				cf_edit 'do_hdr' 'lxdm_conf' '^session=.*'       "session=$STARTX"
 				cf_edit 'do_hdr' 'lxdm_conf' '^#\s*session=.*'   "session=$STARTX"
 				cf_edit 'do_hdr' 'lxdm_conf' '^bg=.*'            "bg=$BG"
+				# TODO On first bootup (only the first!) lxdm-session is not getting
+				# spawned, and user is dropped to a login on vt1.  So as an ugly
+				# workaround, just launch X in vt1
+				cf_edit 'do_hdr' 'lxdm_conf' '^#\s*arg=.*'       'arg=/usr/bin/X vt1'
 				;;
 			jessie)
 				cf_edit 'do_hdr' 'lightdm_conf' '^\(autologin-.*\)$' '# \1'
@@ -1277,9 +1282,11 @@ function check_done () {
 #		echo '...already done'
 	fi
 }
+function usbimg2filegzip () { usbimg2file 'gzip'; }
 function usbimg2file () {
+	[ "$1" == 'gzip' ] && GZIPPIPE='| gzip' GZIPEXT='.gz'
+	IMG_FILE=$RELEASE$ARCH_BITS'.img'$GZIPEXT
 	get_usb_dev
-	IMG_FILE='img.out.gz'
 	M=$((1024*1024))
 	BP_SIZE=`sudo lsblk -nb -o SIZE $USB_P1`
 	RP_SIZE=`sudo lsblk -nb -o SIZE $USB_P2`
@@ -1300,7 +1307,7 @@ function usbimg2file () {
 	msg -n "Continue? (Y/n): "; read; if [ "$REPLY" == 'n' ]; then clean_exit; fi
 	msg 'Copying (be patient, this could take awhile)...'
 
-	dd if=$USB_DEV bs=1M count=$TOTAL_SIZE | gzip > $IMG_FILE
+	eval "dd if=$USB_DEV bs=1M count=$TOTAL_SIZE $GZIPPIPE > $IMG_FILE"
 }
 function depclean() {
 	depends 'location=none' mount_root mount_boot_usb && return
