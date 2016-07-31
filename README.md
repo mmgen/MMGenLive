@@ -63,8 +63,8 @@ tracking/transacting wallet with a full or pruned blockchain.
 Donate: 15TLdmi5NYLdqmtCqczUs5pBPkJDXRs83w
 
 [1]: https://www.raspberrypi.org/documentation/installation/installing-images/windows.md
-[2]: https://github.com/mmgen/MMGenLive/releases/tag/extras-v0.0.1
-[3]: https://github.com/mmgen/MMGenLive/releases/tag/bootimages
+[2]: https://github.com/mmgen/MMGenLive/releases/tag/extras-v0.0.2
+[3]: https://github.com/mmgen/MMGenLive/releases/tag/bootimages-v0.0.2
 [4]: https://bitcointalk.org/index.php?topic=567069.0
 [5]: https://github.com/mmgen/mmgen/wiki/MMGen-Signing-Key
 [6]: https://github.com/mmgen/mmgen/
