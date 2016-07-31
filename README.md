@@ -13,12 +13,12 @@ MMGenLive gives you, out of the box:
 MMGenLive can be used both as an offline signing wallet and as an online
 tracking/transacting wallet with a full or pruned blockchain.
 
-### There are two ways to install MMGenLive:
+### There are two ways to install and run MMGenLive:
 
-* download a prebuilt bootable image and copy it to a USB stick, or
+* download a prebuilt bootable image; or
 * build the system yourself using the automated shell script (Linux-only).
 
-## Install MMGenLive using a prebuilt bootable image:
+## Run MMGenLive from a prebuilt bootable image:
 * Download the latest zipped boot image file for your architecture from the
   [bootimages download directory][3].
 * Insert a USB stick into your computer.
