@@ -61,6 +61,8 @@ declare -A DESCS=(
 	[mount_boot_chroot]='mount the USB drive boot partition on the chroot system'
 	[mount_boot_usb]='mount the USB drive boot partition on the USB drive'
 	[mount_root]='mount the USB drive root partition'
+	[mount_root_img]='mount the img file root partition'
+	[umount_root_img]='umount the img file root partition'
 	[mount_vfs_chroot]='mount virtual filesystems on chroot dir'
 	[partition_usb_boot]='create the USB drive boot partition'
 	[partition_usb_root]='create the USB drive root partition'
@@ -237,7 +239,20 @@ function umount_vfs() {
 	[ "$FOUND" ] && msg "Unmounted virtual filesystems under '$DIR'"
 	return 0
 }
-
+function mount_root_img() {
+	LOOP_DEV=`losetup -f`
+	exec_or_die "losetup -P $LOOP_DEV $IMG_FILE"
+	close_luks_partition $DM_DEV
+	open_luks_partition $LOOP_DEV'p2' $DM_DEV
+	gmsg "Mounting root partition of '$IMG_FILE' on '$IMG_MNT_DIR' (via loop device)"
+	exec_or_die "mount /dev/mapper/$DM_DEV $IMG_MNT_DIR"
+}
+function umount_root_img() {
+	gmsg "Unmounting '$IMG_MNT_DIR'"
+	exec_or_die "umount $IMG_MNT_DIR"
+	close_luks_partition $DM_DEV
+	exec_or_die "losetup -D"
+}
 function mount_root() {
 	[ "$TARGET" == $FUNCNAME ] && CBU=1 # called by user
 	mountpoint -q "$USB_MNT_DIR" && { [ "$CBU" ] && exit; return; }
@@ -1285,7 +1300,7 @@ function check_done () {
 function usbimg2filegzip () { usbimg2file 'gzip'; }
 function usbimg2file () {
 	[ "$1" == 'gzip' ] && GZIPPIPE='| gzip' GZIPEXT='.gz'
-	IMG_FILE=$RELEASE$ARCH_BITS'.img'$GZIPEXT
+	OF=$IMG_FILE$GZIPEXT
 	get_usb_dev
 	M=$((1024*1024))
 	BP_SIZE=`sudo lsblk -nb -o SIZE $USB_P1`
@@ -1303,11 +1318,11 @@ function usbimg2file () {
 	echo "              boot partition:   $BP_SIZE MiB"
 	echo "              root partition:   $RP_SIZE MiB"
 	echo "              total:            $TOTAL_SIZE MiB"
-	msg "Copying and gzip compressing $TOTAL_SIZE MiB from '$USB_DEV' to file '$IMG_FILE'"
+	msg "Copying and gzip compressing $TOTAL_SIZE MiB from '$USB_DEV' to file '$OF'"
 	msg -n "Continue? (Y/n): "; read; if [ "$REPLY" == 'n' ]; then clean_exit; fi
 	msg 'Copying (be patient, this could take awhile)...'
 
-	eval "dd if=$USB_DEV bs=1M count=$TOTAL_SIZE $GZIPPIPE > $IMG_FILE"
+	eval "dd if=$USB_DEV bs=1M count=$TOTAL_SIZE $GZIPPIPE > $OF"
 }
 function depclean() {
 	depends 'location=none' mount_root mount_boot_usb && return
@@ -1465,7 +1480,7 @@ HOST='MMGenLive' USER='mmgen' PASSWD='mmgen'
 BOOTFS_LABEL='MMGEN_BOOT' ROOTFS_LABEL='MMGEN_ROOT'
 DM_DEV='mmgen_p2' DM_ROOT_DEV='root_fs'
 CHROOT_DIR="$RELEASE$ARCH_BITS.system_root"
-USB_MNT_DIR='usb_mnt'
+USB_MNT_DIR='usb_mnt' IMG_MNT_DIR='img_mnt'
 LOOP_FILE='loop.img' LOOP_SIZE=3690 # 1M blocks
 BS_SIZE=4 BOOTFS_SIZE=196 PAD_SIZE=1024
 
@@ -1487,12 +1502,13 @@ APT_ARCHIVE_DIR="$CHROOT_DIR/var/cache/apt/archives"
 APT_ARCHIVE=$RELEASE$ARCH_BITS'.apt-archive.tar'
 EXTRAS_GFX_ARCHIVE=$RELEASE$ARCH_BITS'.extras-gfx.tgz'
 EXTRAS_TTY_ARCHIVE=$RELEASE$ARCH_BITS'.extras-tty.tgz'
+IMG_FILE=$RELEASE$ARCH_BITS'.img'
 declare -A USB_DEV_DESCS=([usb]='USB drive' [loop]='loop device')
 [ "$USB_DEV_TYPE" ] && USB_DEV_DESC=${USB_DEV_DESCS[$USB_DEV_TYPE]}
 
 if [ $SCRIPT == 'build_system.sh' ]; then
 	cd `dirname $0`
-	mkdir -p $CHROOT_DIR/setup $USB_MNT_DIR
+	mkdir -p $CHROOT_DIR/setup $USB_MNT_DIR $IMG_MNT_DIR
 	[ -e '../mmgen/setup.py' ] || {
 		echo 'Unable to find the MMGen source repository.'
 		echo 'It must be located in the same directory as the MMGenLive source repository.'
