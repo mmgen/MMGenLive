@@ -35,6 +35,7 @@ declare -A RELEASES=(
 RELEASE='xenial'
 ARCH='amd64'
 export ARCH_BITS='64'
+export ALT_ARCH='x86_64'
 DO_BLANK=
 DO_INSTALL_EXTRAS_TTY=1 DO_INSTALL_EXTRAS_GFX=1 DO_INSTALL_X=1
 
@@ -57,6 +58,7 @@ declare -A DESCS=(
 	[install_mmgen_dependencies]='install MMGen dependencies'
 	[install_mmgen]='install MMGen on the chroot system'
 	[install_vanitygen]='install Vanitygen'
+	[install_secp256k1]='install the secp256k1 library'
 	[test_mmgen]='test the MMGen wallet suite'
 	[mount_boot_chroot]='mount the USB drive boot partition on the chroot system'
 	[mount_boot_usb]='mount the USB drive boot partition on the USB drive'
@@ -69,7 +71,7 @@ declare -A DESCS=(
 	[restore_chroot_system]='restore the chroot system from saved archive'
 	[restore_apt_archives]='restore the apt archives on the chroot system'
 	[restore_apt_lists]='restore the apt lists on the chroot system'
-	[setup_user]='set up the user account'
+	[setup_user]='set up the user directory'
 	[umount_all]='unmount mounted filesystems'
 	[umount_vfs_chroot]='unmount virtual filesystems on chroot dir'
 	[umount_vfs_usb]='unmount virtual filesystems on USB drive'
@@ -113,7 +115,7 @@ do
 		echo   "  OPTIONS: '-h'    Print this help message"
 		echo   "           '-A'    Don't backup/restore apt archive"
 		echo   "           '-b'    Blank partitions before formatting for greater security"
-		echo   "           '-B'    Don't back up the chroot system after building it"
+		echo   "           '-B'    Back up the chroot system after building it"
 		echo   "           '-c'    Don't do cleanup/unmount at end of script execution"
 		echo   "           '-C'    Don't install console extras (this is not recommended)"
 		echo   "           '-d'    Print debugging information"
@@ -144,13 +146,14 @@ do
 		exit ;;
 	A)  NO_APT_BACKUP=1 ;;
 	b)  DO_BLANK=1 ;;
-	B)  NO_CHROOT_BACKUP=1 ;;
+	B)  CHROOT_BACKUP=1 ;;
 	c)  NO_CLEAN=1 ;;
 	C)  DO_INSTALL_EXTRAS_TTY= ;;
 	d)  DEBUG=1 ;;
 	D)  SHOW_DEPENDS=1 ;;
 	G)  DO_INSTALL_EXTRAS_GFX= ;;
-	i)  ARCH='i386' ARCH_BITS='32'; echo "32-bit build is not implemented yet"; exit ;;
+	i)  export ALT_ARCH='i686'; ARCH='i386'; export ARCH_BITS='32';
+		echo "32-bit build is not implemented yet"; exit ;;
 	L)  NO_APT_LISTS_BACKUP=1 ;;
 	M)  SKIP_MMGEN_TEST=1 ;;
 	o)  LOOP_INSTALL=1 ;;
@@ -404,7 +407,7 @@ function install_host_dependencies() {
 	apt_get_install_chk 'debian-archive-keyring debootstrap parted cryptsetup lsof'
 }
 function backup_chroot_system() {
-	[ "$NO_CHROOT_BACKUP" ] && return
+	[ "$CHROOT_BACKUP" ] || return
 	umount_vfs_chroot
 	gmsg "Making backup copy of '$CHROOT_DIR' ($CHROOT_SYSTEM_ARCHIVE)"
 	exec_or_die "chroot $CHROOT_DIR apt-get clean"
@@ -434,13 +437,15 @@ function run_setup_in_chroot() {
 }
 function live_remove_packages() {
 	case "$RELEASE" in
-		wily|xenial) A='g++-5 gcc-5 grub-gfxpayload-lists' ;;
-		jessie)      A='g++-4.9 g++-4.8 gcc-4.9 gcc-4.8' ;;
+		wily|xenial) A='g++-5 gcc-5 autoconf libtool grub-gfxpayload-lists' ;;
+		jessie)      A='g++-4.9 g++-4.8 gcc-4.9 gcc-4.8 autoconf libtool' ;;
 		*) die "$RELEASE: unknown release"
 	esac
 	exec_or_die "apt-get --yes remove build-essential busybox-static colord colord-data fakeroot g++ gcc grub-common grub-efi-amd64-bin grub-pc grub-pc-bin grub2-common gvfs gvfs-backends gvfs-common gvfs-daemons gvfs-libs $A"
 # lvm2
 	exec_or_die 'apt-get --yes autoremove'
+	# deborphan discovered no orphans, so don't need it
+	# other candidates for removal? (ruby needed by vim-gtk)
 }
 function chroot_install_mmgen_dependencies() {
 
@@ -464,30 +469,44 @@ function chroot_install_vanitygen() {
 	gmsg "Copying 'keyconv' executable to execution path"
 	exec_or_die 'cp vanitygen/keyconv /usr/local/bin'
 }
+function chroot_install_secp256k1() {
+	apt_get_install_chk 'autoconf libtool'
+	exec_or_die 'cd /setup'
+	rm -rf 'secp256k1'
+	exec_or_die 'git clone https://github.com/bitcoin-core/secp256k1.git'
+	exec_or_die '(cd secp256k1; ./autogen.sh; ./configure; make; make install)'
+}
 function copy_user_bitcoind_to_chroot() {
-	ARCHIVE=`ls bitcoin*linux*$ARCH_BITS*t*gz 2>/dev/null` && {
-		exec_or_die "sudo cp $ARCHIVE $CHROOT_DIR/setup"
+	ARCHIVE=`ls bitcoin-*-${ALT_ARCH}-linux-gnu.tar.gz 2>/dev/null` && {
 		ymsg "Found user-supplied Bitcoin Core archive: $ARCHIVE"
+		exec_or_die "sudo cp $ARCHIVE $CHROOT_DIR/setup"
 	}
 }
 function chroot_install_bitcoind() {
 	exec_or_die 'cd /setup'
 	gmsg 'Retrieving Bitcoin Core'
 	URL='https://bitcoin.org/bin/'
-	TEXT=`lynx --listonly --nonumbers --dump $URL`
+	exec_or_die 'TEXT=`lynx --listonly --nonumbers --dump $URL`'
 #	TEXT=`cat /setup/bitcoin.org.bin.txt`
 	UPATH=`echo "$TEXT"| egrep -i  'http.*bitcoin.*core' | sort -V | tail -n1`
 	VER=${UPATH/*-} VER=${VER%/}
-	if ARCHIVE=`ls bitcoin*linux*$ARCH_BITS*t*gz 2>/dev/null`; then
+# OLD: bitcoin-0.12.1-linux64.tar.gz
+# NEW: bitcoin-0.13.0-x86_64-linux-gnu.tar.gz
+#	if ARCHIVE=`ls bitcoin*-linux$ARCH_BITS.tar.gz 2>/dev/null`; then
+	if ARCHIVE=`ls bitcoin-*-${ALT_ARCH}-linux-gnu.tar.gz 2>/dev/null`; then
 		yecho "Found Bitcoin Core archive '$ARCHIVE' in the chroot system"
-		VER=${ARCHIVE#*-} VER=${VER%-linux*gz}
+		VER=${ARCHIVE#*-} VER=${VER%%-*}
 		echo "Version is $VER"
 	elif echo "$VER" | egrep -q '^[0-9]+\.[0-9]+\.[0-9]+$'; then
 #	if false; then
 		echo "Latest version is $VER"
-		ARCHIVE="bitcoin-$VER-linux${ARCH_BITS}.tar.gz"
-		WGET_URL="${UPATH%/}/$ARCHIVE"
-		exec_or_die "curl -O $WGET_URL"
+#		ARCHIVE="bitcoin-${VER}-linux${ARCH_BITS}.tar.gz"
+		ARCHIVE="bitcoin-${VER}-${ALT_ARCH}-linux-gnu.tar.gz"
+		CURL_URL="${UPATH%/}/$ARCHIVE"
+		exec_or_die "curl -O $CURL_URL"
+		exec_or_die "sha256sum $ARCHIVE"
+		bmsg 'Please verify sha256 sum above from a trusted source before continuing'
+		pause
 	else
 		yecho -n "Unable to find latest version of Bitcoin Core"
 		yecho " (version number ${VER} doesn't fit pattern)."
@@ -502,7 +521,7 @@ function chroot_install_bitcoind() {
 		rm -f $ARCHIVE
 		ymsg 'Archive could not be unpacked, so it was deleted.  Exiting.'; die
 	}
-	exec_or_die "(cd bitcoin*$VER/bin; cp bitcoind bitcoin-cli /usr/local/bin)"
+	exec_or_die "(cd bitcoin-$VER/bin; cp bitcoind bitcoin-cli /usr/local/bin)"
 }
 function chroot_install_mmgen() {
 	exec_or_die 'cd /setup'
@@ -511,7 +530,8 @@ function chroot_install_mmgen() {
 }
 function chroot_cleanup_mmgen_builds() {
 	exec_or_die 'cd /setup'
-	exec_or_die 'rm -rf bitcoin-* mmgen-* pexpect-* vanitygen'
+	exec_or_die 'rm -rf bitcoin-* mmgen-* pexpect-* vanitygen secp256k1'
+	exec_or_die 'rm -rf ~mmgen/.bitcoin'
 }
 function chroot_setup_user() {
 	grep -q "^$USER:" /etc/passwd || exec_or_die "useradd -s /bin/bash -m $USER"
@@ -521,9 +541,12 @@ function chroot_setup_user() {
 	exec_or_die "echo $USER:$PASSWD | chpasswd"
 #	exec_or_die "echo root:$PASSWD | chpasswd"  # no root login
 
-	gmsg "Unpacking MMGen repository to user ${USER}'s ~/src directory"
+	gmsg "Unpacking MMGen Python archive in user ~${USER}/src"
 	exec_or_die "chmod 644 /setup/$MMGEN_ARCHIVE_NAME"
 	exec_or_die "su - $USER -c 'mkdir -p src; tar -C src -xzf /setup/$MMGEN_ARCHIVE_NAME'"
+
+	gmsg "Building secp256k1 extension module in ~${USER}/src"
+	exec_or_die "su - $USER -c 'cd src/mmgen-* && ./setup.py build_ext && rm -rf build'"
 }
 function chroot_test_mmgen() {
 	c=1
@@ -535,14 +558,14 @@ function chroot_test_mmgen() {
 
 	echo
 	gmsg 'Starting bitcoind'
-	exec_or_die "su - $USER -c 'bitcoind -daemon -listen=0 -maxconnections=0'"
+	exec_or_die "su - $USER -c 'bitcoind -keypool=0 -daemon -listen=0 -maxconnections=0'"
 	gmsg 'Waiting for Bitcoin RPC to become available'
 		while ! su - $USER -c 'bitcoin-cli getbalance >/dev/null 2>&1'; do
 			sleep 2
 		done
 
 	gmsg 'Running the MMGen test suite'
-	eval "(su - $USER -c 'cd src/${MMGEN_ARCHIVE_NAME/.tar.gz}; test/test.py -s')" || {
+	eval "(su - $USER -c 'cd src/${MMGEN_ARCHIVE_NAME/.tar.gz}; LANG=en_US.UTF-8 test/test.py -s; test/test.py clean')" || {
 		ymsg 'MMGen test suite failed'
 		eval "su - $USER -c 'bitcoin-cli stop'"
 		return 73
@@ -595,7 +618,7 @@ declare -A CFG_NAMES=(
 	[console_setup]='/etc/default/console-setup'
 	[dfl_locale]='/etc/default/locale'
 	[dfl_grub]='/etc/default/grub'
-	[rc_local]='/etc/rc.local'
+#	[rc_local]='/etc/rc.local'
 	[supported_locales]='/var/lib/locales/supported.d/SUPPORTED'
 	[initrd_cryptsetup]='/etc/initramfs-tools/conf.d/cryptsetup'
 	[etc_groups]='/etc/groups'
@@ -666,12 +689,12 @@ GRUB_ENABLE_CRYPTODISK="y"'
 
 	cf_write 'do_hdr' 'initrd_cryptsetup' 'export CRYPTSETUP=y'
 
-	cf_edit 'do_hdr' 'rc_local' '^exit 0\s*$' '# exit 0' # won't touch our 'exit 0' below
-	cf_append 'do_hdr' 'rc_local' 'echo "Disabling network services, wifi and bluetooth"
-rfkill block wifi
-rfkill block bluetooth
-/etc/init.d/xl2tpd stop
-exit 0 # MMGen'
+#	cf_edit 'do_hdr' 'rc_local' '^exit 0\s*$' '# exit 0' # won't touch our 'exit 0' below
+# 	cf_append 'do_hdr' 'rc_local' 'echo "Disabling network services, wifi and bluetooth"
+# rfkill block wifi
+# rfkill block bluetooth
+# /etc/init.d/xl2tpd stop
+# exit 0 # MMGen'
 
 	cf_append 'do_hdr' 'etc_sudoers' "$USER ALL = NOPASSWD: ALL"
 
@@ -716,6 +739,10 @@ function install_mmgen_dependencies() {
 	chroot_install $FUNCNAME
 }
 function install_vanitygen() {
+	depends 'location=chroot' && return
+	chroot_install $FUNCNAME
+}
+function install_secp256k1() {
 	depends 'location=chroot' && return
 	chroot_install $FUNCNAME
 }
@@ -1033,7 +1060,7 @@ function live_install_x() {
 		jessie)      A='plymouth-themes plymouth-x11 lightdm' ;;
 		*) die "$RELEASE: unknown release"
 	esac
-	apt_get_install_chk "xserver-xorg x11-xserver-utils xinit xfce4 xfce4-notifyd xscreensaver desktop-base tango-icon-theme rxvt-unicode-256color fonts-dejavu network-manager-gnome vim-gtk crystalcursors xcursor-themes $A" '--no-install-recommends'
+	apt_get_install_chk "xserver-xorg xserver-xorg-video-fbdev x11-xserver-utils xinit xfce4 xfce4-notifyd xscreensaver desktop-base tango-icon-theme rxvt-unicode-256color fonts-dejavu network-manager-gnome vim-gtk crystalcursors xcursor-themes $A" '--no-install-recommends'
 }
 function usb_install_extras_tty() {
 	depends 'location=usb' mount_root && return
@@ -1059,8 +1086,7 @@ function usb_install_extras_gfx() {
 	exec_or_die "tar -C $USB_MNT_DIR -xzf $EXTRAS_GFX_ARCHIVE"
 }
 function usb_create_grub_cfg_file() {
-	# unmount, then mount, otherwise root UUID might be incorrect
-	depends 'location=usb_boot' umount_all mount_root mount_boot_usb && return
+	depends 'location=usb' umount_all mount_root mount_boot_usb && return
 	BOOT_UUID=`lsblk -no UUID $USB_P1`
 	ROOT_UUID=`lsblk -no UUID $USB_P2 | head -n1`
 	VMLINUZ=`basename $USB_MNT_DIR/boot/vmlinuz*`
@@ -1193,6 +1219,7 @@ function setup_sh_usb_config_misc() {
 	exec_or_die 'systemctl disable NetworkManager'
 	exec_or_die 'systemctl disable wpa_supplicant'
 	exec_or_die 'systemctl disable tor'
+	exec_or_die 'systemctl enable rclocal-shutdown'
 	[ "$RELEASE" != 'xenial' ] && exec_or_die 'systemctl disable bluetooth'
 #	exec_or_die 'systemctl disable lvm2'
 }
@@ -1452,6 +1479,7 @@ function build_chroot() {
 		build_base \
 		install_mmgen_dependencies \
 		install_vanitygen \
+		install_secp256k1 \
 		install_bitcoind \
 		install_mmgen \
 		setup_user \
