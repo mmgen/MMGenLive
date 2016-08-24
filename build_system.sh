@@ -180,7 +180,6 @@ if [ $SCRIPT == 'build_system.sh' -a ! "${TARGETS[$TARGET]}" ]; then
 fi
 
 eval "$@" || exit
-#echo "$@"; exit
 
 if which infocmp >/dev/null && infocmp $TERM 2>/dev/null | grep -q 'colors#256'; then
 	RED="\e[38;5;210m" YELLOW="\e[38;5;228m" GREEN="\e[38;5;157m"
