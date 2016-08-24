@@ -515,7 +515,6 @@ function chroot_install_bitcoind() {
 		yecho " the same directory as this script, and restart the script."
 		die
 	fi
-#	https://bitcoin.org/bin/bitcoin-core-0.12.0/bitcoin-0.12.0-linux64.tar.gz
 	gmsg 'Unpacking and installing Bitcoin Core'
 	tar xzf $ARCHIVE || {
 		rm -f $ARCHIVE
