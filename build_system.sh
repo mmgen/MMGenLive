@@ -916,7 +916,7 @@ function partition_usb() {
 		fi
 	elif [ "$TYPE" == 'root' ]; then
 		if [ "$DO_BLANK" ]; then
-			msg 'Blanking root partition (be patient, this could take awhile)'
+			msg 'Blanking root partition (be patient, this could take a while)'
 			COUNT=$ROOTPART_SIZE
 			echo "              root partition ($COUNT MiB)..."
 			exec_or_die "$DD count=$COUNT seek=$((BS_SIZE+BOOTFS_SIZE))"
@@ -1007,6 +1007,8 @@ function usb_copy_system() {
 		msg -n "A system already exists on '$USB_MNT_DIR'.  Overwrite? (y/N): "; read
 		if [ "$REPLY" != 'y' ]; then return; fi
 	fi
+	exec_or_die "find $CHROOT_DIR/var/log -type f -exec rm -f {} \;" # remove log files
+
 	echo "Executing: rm -rf $USB_MNT_DIR/*"
 	exec_or_die "rm -rf $USB_MNT_DIR/*"
 	msg 'Copying root filesystem to LUKS partition'
@@ -1394,7 +1396,7 @@ function usbimg2file () {
 	echo "              total:            $TOTAL_SIZE MiB"
 	msg "Copying$GZIPMSG $TOTAL_SIZE MiB from '$USB_DEV' to file '$OF'"
 	msg -n "Continue? (Y/n): "; read; if [ "$REPLY" == 'n' ]; then clean_exit; fi
-	msg 'Copying (be patient, this could take awhile)...'
+	msg 'Copying (be patient, this could take a while)...'
 
 	eval "dd if=$USB_DEV bs=1M count=$TOTAL_SIZE $GZIPPIPE > $OF"
 }
