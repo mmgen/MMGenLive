@@ -39,6 +39,7 @@ export ALT_ARCH='x86_64'
 DO_BLANK=
 DO_INSTALL_EXTRAS_TTY=1 DO_INSTALL_EXTRAS_GFX=1 DO_INSTALL_X=1
 
+# [copy_user_bitcoind_to_chroot]='copy user-supplied Bitcoin Core tar archive to chroot system'
 declare -A DESCS=(
 	[apt_get_update]='update package lists'
 	[backup_apt_archives]='back up apt archives'
@@ -51,20 +52,22 @@ declare -A DESCS=(
 	[build_mmgen_sdist]='build MMGen source archive'
 	[build_usb]='copy the live system to the USB drive; configure the system'
 	[copy_mmgen_sdist]='copy MMGen source archive to chroot system'
-	[copy_user_bitcoind_to_chroot]='copy user-supplied Bitcoin Core tar archive to chroot system'
 	[cleanup_mmgen_builds]='clean up build files in the /setup directory'
 	[install_bitcoind]='install Bitcoin Core on the chroot system'
 	[install_host_dependencies]='install required packages on build machine'
 	[install_mmgen_dependencies]='install MMGen dependencies'
-	[install_mmgen]='install MMGen on the chroot system'
+	[install_mmgen]='install MMGen on the chroot system (but not in user dir)'
+	[reinstall_mmgen]='reinstall MMGen on the chroot system AND in user dir'
 	[install_vanitygen]='install Vanitygen'
 	[install_secp256k1]='install the secp256k1 library'
 	[test_mmgen]='test the MMGen wallet suite'
 	[mount_boot_chroot]='mount the USB drive boot partition on the chroot system'
 	[mount_boot_usb]='mount the USB drive boot partition on the USB drive'
 	[mount_root]='mount the USB drive root partition'
-	[mount_root_img]='mount the img file root partition'
-	[umount_root_img]='umount the img file root partition'
+	[mount_img_boot]='mount the img file boot partition'
+	[umount_img_boot]='umount the img file boot partition'
+	[mount_img_root]='mount the img file root partition'
+	[umount_img_root]='umount the img file root partition'
 	[mount_vfs_chroot]='mount virtual filesystems on chroot dir'
 	[partition_usb_boot]='create the USB drive boot partition'
 	[partition_usb_root]='create the USB drive root partition'
@@ -86,6 +89,7 @@ declare -A DESCS=(
 
 	[usb_config_misc]='configure services on USB system'
 	[usb_copy_system]='copy chroot system to USB drive'
+	[usb_copy_userdir]='copy chroot userdir to USB drive'
 	[usb_create_grub_cfg_file]='create GRUB configuration file (grub.cfg)'
 	[usb_create_system_cfg_files]='create system configuration files on USB drive'
 	[usb_gen_locales]='generate configured locales'
@@ -107,12 +111,13 @@ done
 TARGET='build'
 
 
-while getopts hAbBcCdDGiLMor:sSuvxX OPT
+while getopts haAbBcCdDGiLMor:sSuvxX OPT
 do
 	case "$OPT" in
 	h)  printf "  %-16s Build an MMGenLive system\n" "${PROGNAME^^}:"
 		echo   "  USAGE:           $PROGNAME [options] [target]"
 		echo   "  OPTIONS: '-h'    Print this help message"
+		echo   "           '-a'    Back up base (debootstrap) system"
 		echo   "           '-A'    Don't backup/restore apt archive"
 		echo   "           '-b'    Blank partitions before formatting for greater security"
 		echo   "           '-B'    Back up the chroot system after building it"
@@ -144,6 +149,7 @@ do
 		echo   "  Default target:"
 		echo   "      $TARGET"
 		exit ;;
+	a)  BACKUP_BASE_SYSTEM=1 ;;
 	A)  NO_APT_BACKUP=1 ;;
 	b)  DO_BLANK=1 ;;
 	B)  CHROOT_BACKUP=1 ;;
@@ -241,17 +247,28 @@ function umount_vfs() {
 	[ "$FOUND" ] && msg "Unmounted virtual filesystems under '$DIR'"
 	return 0
 }
-function mount_root_img() {
+function mount_img_boot() {
+	LOOP_DEV=`losetup -f`
+	exec_or_die "losetup -P $LOOP_DEV $IMG_FILE"
+	gmsg "Mounting boot partition of '$IMG_FILE' on '$IMG_BOOT_MNT_DIR' (via loop device)"
+	exec_or_die "mount $LOOP_DEV'p1' $IMG_BOOT_MNT_DIR"
+}
+function umount_img_boot() {
+	gmsg "Unmounting '$IMG_BOOT_MNT_DIR'"
+	exec_or_die "umount $IMG_BOOT_MNT_DIR"
+	exec_or_die "losetup -D"
+}
+function mount_img_root() {
 	LOOP_DEV=`losetup -f`
 	exec_or_die "losetup -P $LOOP_DEV $IMG_FILE"
 	close_luks_partition $DM_DEV
 	open_luks_partition $LOOP_DEV'p2' $DM_DEV
-	gmsg "Mounting root partition of '$IMG_FILE' on '$IMG_MNT_DIR' (via loop device)"
-	exec_or_die "mount /dev/mapper/$DM_DEV $IMG_MNT_DIR"
+	gmsg "Mounting root partition of '$IMG_FILE' on '$IMG_ROOT_MNT_DIR' (via loop device)"
+	exec_or_die "mount /dev/mapper/$DM_DEV $IMG_ROOT_MNT_DIR"
 }
-function umount_root_img() {
-	gmsg "Unmounting '$IMG_MNT_DIR'"
-	exec_or_die "umount $IMG_MNT_DIR"
+function umount_img_root() {
+	gmsg "Unmounting '$IMG_ROOT_MNT_DIR'"
+	exec_or_die "umount $IMG_ROOT_MNT_DIR"
 	close_luks_partition $DM_DEV
 	exec_or_die "losetup -D"
 }
@@ -475,52 +492,6 @@ function chroot_install_secp256k1() {
 	exec_or_die 'git clone https://github.com/bitcoin-core/secp256k1.git'
 	exec_or_die '(cd secp256k1; ./autogen.sh; ./configure; make; make install)'
 }
-function copy_user_bitcoind_to_chroot() {
-	ARCHIVE=`ls bitcoin-*-${ALT_ARCH}-linux-gnu.tar.gz 2>/dev/null` && {
-		ymsg "Found user-supplied Bitcoin Core archive: $ARCHIVE"
-		exec_or_die "sudo cp $ARCHIVE $CHROOT_DIR/setup"
-	}
-}
-function chroot_install_bitcoind() {
-	exec_or_die 'cd /setup'
-	gmsg 'Retrieving Bitcoin Core'
-	URL='https://bitcoin.org/bin/'
-	exec_or_die 'TEXT=`lynx --listonly --nonumbers --dump $URL`'
-#	TEXT=`cat /setup/bitcoin.org.bin.txt`
-	UPATH=`echo "$TEXT"| egrep -i  'http.*bitcoin.*core' | sort -V | tail -n1`
-	VER=${UPATH/*-} VER=${VER%/}
-# OLD: bitcoin-0.12.1-linux64.tar.gz
-# NEW: bitcoin-0.13.0-x86_64-linux-gnu.tar.gz
-#	if ARCHIVE=`ls bitcoin*-linux$ARCH_BITS.tar.gz 2>/dev/null`; then
-	if ARCHIVE=`ls bitcoin-*-${ALT_ARCH}-linux-gnu.tar.gz 2>/dev/null`; then
-		yecho "Found Bitcoin Core archive '$ARCHIVE' in the chroot system"
-		VER=${ARCHIVE#*-} VER=${VER%%-*}
-		echo "Version is $VER"
-	elif echo "$VER" | egrep -q '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-#	if false; then
-		echo "Latest version is $VER"
-#		ARCHIVE="bitcoin-${VER}-linux${ARCH_BITS}.tar.gz"
-		ARCHIVE="bitcoin-${VER}-${ALT_ARCH}-linux-gnu.tar.gz"
-		CURL_URL="${UPATH%/}/$ARCHIVE"
-		exec_or_die "curl -O $CURL_URL"
-		exec_or_die "sha256sum $ARCHIVE"
-		bmsg 'Please verify sha256 sum above from a trusted source before continuing'
-		pause
-	else
-		yecho -n "Unable to find latest version of Bitcoin Core"
-		yecho " (version number ${VER} doesn't fit pattern)."
-		yecho "See: $URL"
-		yecho -n "Download the latest Linux $ARCH_BITS-bit gzipped tar archive, place it in"
-		yecho " the same directory as this script, and restart the script."
-		die
-	fi
-	gmsg 'Unpacking and installing Bitcoin Core'
-	tar xzf $ARCHIVE || {
-		rm -f $ARCHIVE
-		ymsg 'Archive could not be unpacked, so it was deleted.  Exiting.'; die
-	}
-	exec_or_die "(cd bitcoin-$VER/bin; cp bitcoind bitcoin-cli /usr/local/bin)"
-}
 function chroot_install_mmgen() {
 	exec_or_die 'cd /setup'
 	exec_or_die "tar xzf $MMGEN_ARCHIVE_NAME"
@@ -733,12 +704,12 @@ function inform()               { gmsg "TO DO: ${DESCS[$1]}"; eval $1; }
 function do_gen_locales()       { exec_or_die 'locale-gen'; }
 
 function install_mmgen_dependencies() {
-	depends 'location=chroot' restore_apt_archives restore_apt_lists && return
+	depends 'location=chroot' && return
 	chroot_install $FUNCNAME
 }
 function install_vanitygen() {
 	depends 'location=chroot' && return
-	chroot_install $FUNCNAME
+	chroot_install_no_apt $FUNCNAME
 }
 function install_secp256k1() {
 	depends 'location=chroot' && return
@@ -746,27 +717,90 @@ function install_secp256k1() {
 }
 function setup_user() {
 	depends 'location=chroot' && return
-	chroot_install $FUNCNAME
+	chroot_install_no_apt $FUNCNAME
 }
 function install_bitcoind() {
-	depends 'location=chroot' copy_user_bitcoind_to_chroot && return
-	chroot_install $FUNCNAME 'INFORM=1'
+	depends 'location=chroot' && return
+	gmsg 'Retrieving Bitcoin Core'
+	URL='https://bitcoin.org/bin/'
+	exec_or_die 'TEXT=`lynx --listonly --nonumbers --dump $URL`'
+#	TEXT=`cat /setup/bitcoin.org.bin.txt`
+	UPATH=`echo "$TEXT"| egrep -i  'http.*bitcoin.*core' | sort -V | tail -n1`
+	VER=${UPATH/*-} VER=${VER%/}
+	yecho "Latest version from $URL is $VER"
+
+#	bitcoin-0.13.0-x86_64-linux-gnu.tar.gz
+	if ARCHIVE=`ls bitcoin-*-${ALT_ARCH}-linux-gnu.tar.gz | tail -n1 2>/dev/null`; then
+		echo "Found Bitcoin Core archive '$ARCHIVE' in build directory"
+		LVER=${ARCHIVE#*-} LVER=${LVER%%-*}
+		if [ "$LVER" == "$VER" ]; then
+			echo "Local archive is newest version ($LVER)"; HAVE_LATEST_BITCOIND=1
+		else
+			echo "Local archive version ($LVER) is not latest ($VER)"
+		fi
+	fi
+
+	if [ ! "$HAVE_LATEST_BITCOIND" ]; then
+		if echo "$VER" | egrep -q '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+			echo "Latest version is $VER"
+			ARCHIVE="bitcoin-${VER}-${ALT_ARCH}-linux-gnu.tar.gz"
+			CURL_URL="${UPATH%/}/$ARCHIVE"
+			exec_or_die "curl -O $CURL_URL"
+			exec_or_die "sha256sum $ARCHIVE"
+			bmsg 'Please verify sha256 sum above from a trusted source before continuing'
+			pause
+		else
+			yecho -n "Unable to find latest version of Bitcoin Core"
+			yecho " (version number ${VER} doesn't fit pattern)."
+			yecho "See: $URL"
+			yecho -n "Download the latest Linux $ARCH_BITS-bit gzipped tar archive, place it in"
+			yecho " the same directory as this script, and restart the script."
+			die
+		fi
+	fi
+
+	gmsg 'Unpacking and installing Bitcoin Core'
+	tar xzf $ARCHIVE || {
+		rm -f $ARCHIVE
+		ymsg 'Archive could not be unpacked, so it was deleted.  Exiting.'; die
+	}
+	exec_or_die "cp -v bitcoin-$VER/bin/bitcoin{d,-cli} $CHROOT_DIR/usr/local/bin"
+	exec_or_die "rm -r bitcoin-$VER"
 }
 function install_mmgen() {
 	dbecho "==> $FUNCNAME($@)"
-	depends 'location=chroot' build_mmgen_sdist copy_mmgen_sdist && return
-	chroot_install $FUNCNAME 'INFORM=1'
+	depends 'location=chroot' build_mmgen_sdist copy_mmgen_sdist install_mmgen_dependencies && return
+	chroot_install_no_apt $FUNCNAME 'INFORM=1'
+}
+function reinstall_mmgen() {
+	dbecho "==> $FUNCNAME($@)"
+	rm -v $CHROOT_DIR/setup/progress/install_mmgen_dependencies
+	depends 'location=chroot' build_mmgen_sdist copy_mmgen_sdist install_mmgen_dependencies && return
+	chroot_install_no_apt $FUNCNAME 'INFORM=1'
+	rm -v $CHROOT_DIR/setup/progress/{remove_packages,cleanup_mmgen_builds,setup_user}
+	setup_user
+	remove_packages
+	cleanup_mmgen_builds
 }
 function test_mmgen() {
 	depends 'location=chroot' && return
 	[ "$SKIP_MMGEN_TEST" ] && return 73
-	chroot_install $FUNCNAME
+	chroot_install_no_apt $FUNCNAME
 }
 function cleanup_mmgen_builds() {
 	depends 'location=none' && return
-	chroot_install $FUNCNAME
+	chroot_install_no_apt $FUNCNAME
 }
-function chroot_install() { FUNC=$1; shift; run_setup_chroot $OPTS chroot_$FUNC $@; }
+function chroot_install() {
+	restore_apt_lists
+	restore_apt_archives
+	FUNC=$1; shift
+	run_setup_chroot $OPTS chroot_$FUNC $@;
+}
+function chroot_install_no_apt() {
+	FUNC=$1; shift
+	run_setup_chroot $OPTS chroot_$FUNC $@;
+}
 
 function setup_loop() {
 	if [ -e $LOOP_FILE ]; then
@@ -965,7 +999,7 @@ function mkfs_usb_drive() {
 }
 function usb_copy_system() {
 	depends 'location=usb' build_live_system partition_usb_root && return
-	umount_vfs_chroot
+	umount_all
 	mount_root
 	exec_or_die "mountpoint -q $USB_MNT_DIR"
 
@@ -973,11 +1007,20 @@ function usb_copy_system() {
 		msg -n "A system already exists on '$USB_MNT_DIR'.  Overwrite? (y/N): "; read
 		if [ "$REPLY" != 'y' ]; then return; fi
 	fi
-	# save before clobbering
-	exec_or_die "cp -f $USB_MNT_DIR/setup/progress/* $CHROOT_DIR/setup/progress"
+	echo "Executing: rm -rf $USB_MNT_DIR/*"
 	exec_or_die "rm -rf $USB_MNT_DIR/*"
 	msg 'Copying root filesystem to LUKS partition'
 	exec_or_die "for i in $CHROOT_DIR/*; do echo copying \$i; cp -a \$i $USB_MNT_DIR; done"
+}
+function usb_copy_userdir() {
+	umount_vfs_chroot
+	mount_root
+	exec_or_die "mountpoint -q $USB_MNT_DIR"
+	echo "Executing: rm -rf $USB_MNT_DIR/home/$USER"
+	exec_or_die "rm -rf $USB_MNT_DIR/home/$USER"
+	msg "Copying '/home/$USER' to LUKS partition"
+	exec_or_die "cp -a $CHROOT_DIR/home/$USER $USB_MNT_DIR/home"
+	yecho "You should now run 'usb_install_extras_tty' and 'usb_install_extras_gfx'"
 }
 function backup_apt_archives() {
 	[ "$NO_APT_BACKUP" ] && return
@@ -1138,12 +1181,18 @@ set kver='${VMLINUZ/vmlinuz-}'
 set classinfo='--class ubuntu --class gnu-linux --class gnu --class os'
 set kcryptoargs=\"root=/dev/mapper/$DM_ROOT_DEV cryptopts=source=\${rootfs_dev},target=$DM_ROOT_DEV rootfstype=ext4\"
 set kargs_gfx='ro quiet splash'
-set kargs_console='ro text'
+set kargs_console='ro text systemd.mask=display-manager.service'
 set desc=\"$PROJ_NAME ${RELEASES[$RELEASE]}\" # release desc contains single quotes!
 
 menuentry \"\${desc} \${passwd_info}\" \${classinfo} {
 	echo \"Loading vmlinuz-\${kver}...\"
 	linux /vmlinuz-\${kver} \${kcryptoargs} \${kargs_gfx}
+	echo \"Loading initrd.img-\${kver}...\"
+	initrd /initrd.img-\${kver}
+}
+menuentry \"\${desc} (text mode) \${passwd_info}\" \${classinfo} {
+	echo \"Loading vmlinuz-\${kver}...\"
+	linux /vmlinuz-\${kver} \${kcryptoargs} \${kargs_console}
 	echo \"Loading initrd.img-\${kver}...\"
 	initrd /initrd.img-\${kver}
 }"
@@ -1324,7 +1373,7 @@ function check_done () {
 }
 function usbimg2filegzip () { usbimg2file 'gzip'; }
 function usbimg2file () {
-	[ "$1" == 'gzip' ] && GZIPPIPE='| gzip' GZIPEXT='.gz'
+	[ "$1" == 'gzip' ] && GZIPPIPE='| gzip' GZIPEXT='.gz' GZIPMSG=' and gzip compressing'
 	OF=$IMG_FILE$GZIPEXT
 	get_usb_dev
 	M=$((1024*1024))
@@ -1343,7 +1392,7 @@ function usbimg2file () {
 	echo "              boot partition:   $BP_SIZE MiB"
 	echo "              root partition:   $RP_SIZE MiB"
 	echo "              total:            $TOTAL_SIZE MiB"
-	msg "Copying and gzip compressing $TOTAL_SIZE MiB from '$USB_DEV' to file '$OF'"
+	msg "Copying$GZIPMSG $TOTAL_SIZE MiB from '$USB_DEV' to file '$OF'"
 	msg -n "Continue? (Y/n): "; read; if [ "$REPLY" == 'n' ]; then clean_exit; fi
 	msg 'Copying (be patient, this could take awhile)...'
 
@@ -1461,8 +1510,10 @@ function build_base() {
 		exec_or_die "debootstrap $RELEASE $CHROOT_DIR"
 		gmsg 'Deleting package files'
 		exec_or_die "chroot $CHROOT_DIR apt-get clean"
-		gmsg "Making backup copy of '$CHROOT_DIR' ($BASE_SYSTEM_ARCHIVE)"
-		exec_or_die "tar czf $BASE_SYSTEM_ARCHIVE $CHROOT_DIR"
+		if [ "$BACKUP_BASE_SYSTEM" ]; then
+			gmsg "Making backup copy of '$CHROOT_DIR' ($BASE_SYSTEM_ARCHIVE)"
+			exec_or_die "tar czf $BASE_SYSTEM_ARCHIVE $CHROOT_DIR"
+		fi
 	fi
 }
 function restore_chroot_system() {
@@ -1506,7 +1557,7 @@ HOST='MMGenLive' USER='mmgen' PASSWD='mmgen'
 BOOTFS_LABEL='MMGEN_BOOT' ROOTFS_LABEL='MMGEN_ROOT'
 DM_DEV='mmgen_p2' DM_ROOT_DEV='root_fs'
 CHROOT_DIR="$RELEASE$ARCH_BITS.system_root"
-USB_MNT_DIR='usb_mnt' IMG_MNT_DIR='img_mnt'
+USB_MNT_DIR='usb_mnt' IMG_ROOT_MNT_DIR='img_mnt_root' IMG_BOOT_MNT_DIR='img_mnt_boot'
 LOOP_FILE='loop.img' LOOP_SIZE=3690 # 1M blocks
 BS_SIZE=4 BOOTFS_SIZE=196 PAD_SIZE=1024
 
@@ -1534,7 +1585,7 @@ declare -A USB_DEV_DESCS=([usb]='USB drive' [loop]='loop device')
 
 if [ $SCRIPT == 'build_system.sh' ]; then
 	cd `dirname $0`
-	mkdir -p $CHROOT_DIR/setup $USB_MNT_DIR $IMG_MNT_DIR
+	mkdir -p $CHROOT_DIR/setup $USB_MNT_DIR $IMG_ROOT_MNT_DIR
 	[ -e '../mmgen/setup.py' ] || {
 		echo 'Unable to find the MMGen source repository.'
 		echo 'It must be located in the same directory as the MMGenLive source repository.'
