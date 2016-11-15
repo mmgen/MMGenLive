@@ -27,8 +27,8 @@ tracking/transacting wallet with a full or pruned blockchain.
 
 > * Determine your USB stick’s device name.  This can be done with the command
 > `dmesg | tail`, for example.
-> * Unzip the image and copy it to the USB stick with the command
-> `zcat *.img.tgz > /dev/sdX`, replacing `sdX` with your USB stick’s device name.
+> * Write the image to the USB stick with the command `zcat *.img.tgz >/dev/sdX`,
+> replacing `sdX` with your USB stick’s device name.
 
 > ### If you’re running Windows:
 
