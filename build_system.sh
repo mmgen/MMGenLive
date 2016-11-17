@@ -1093,7 +1093,8 @@ function live_install_kernel() {
 }
 
 function live_install_system_utils() {
-	apt_get_install_chk 'ethtool dosfstools parted gdisk wipe lsof fbset man rfkill nano tmux vim sudo openssh-client rsync ppp network-manager-pptp iputils-arping xl2tpd tor' '--no-install-recommends'
+	apt_get_install_chk 'ethtool dosfstools parted gdisk wipe lsof fbset man rfkill nano tmux vim sudo openssh-client rsync ppp network-manager-pptp iputils-arping xl2tpd tor tor-geoipdb openssh-server scrot feh' '--no-install-recommends'
+
 }
 
 function live_install_x() {
@@ -1110,6 +1111,7 @@ function usb_install_extras_tty() {
 	[ "$DO_INSTALL_EXTRAS_TTY" ] || return 73
 	check_extras_tty_present
 	exec_or_die "tar -C $USB_MNT_DIR -xzf $EXTRAS_TTY_ARCHIVE"
+	exec_or_die "tar -tzf $EXTRAS_TTY_ARCHIVE > $USB_MNT_DIR/setup/extras-tty.lst"
 }
 function usb_install_extras_gfx() {
 	depends 'location=usb' mount_root mount_boot_usb && return
@@ -1127,6 +1129,7 @@ function usb_install_extras_gfx() {
 	BG_DIR="$USB_MNT_DIR/usr/share/backgrounds/xfce"
 	exec_or_die "rm -f $BG_DIR/*"
 	exec_or_die "tar -C $USB_MNT_DIR -xzf $EXTRAS_GFX_ARCHIVE"
+	exec_or_die "tar -tzf $EXTRAS_GFX_ARCHIVE > $USB_MNT_DIR/setup/extras-tty.lst"
 }
 function usb_create_grub_cfg_file() {
 	depends 'location=usb' umount_all mount_root mount_boot_usb && return
@@ -1268,8 +1271,10 @@ function setup_sh_usb_config_misc() {
 	exec_or_die 'systemctl disable NetworkManager'
 	exec_or_die 'systemctl disable wpa_supplicant'
 	exec_or_die 'systemctl disable tor'
+	exec_or_die 'systemctl disable ssh'
 	exec_or_die 'systemctl enable rclocal-shutdown'
 	[ "$RELEASE" != 'xenial' ] && exec_or_die 'systemctl disable bluetooth'
+	exec_or_die "rm -rf /setup/progress /setup/last_apt_update"
 #	exec_or_die 'systemctl disable lvm2'
 }
 function setup_sh_usb_gen_locales() {
