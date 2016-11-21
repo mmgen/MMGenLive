@@ -596,6 +596,7 @@ declare -A CFG_NAMES=(
 	[lxdm_conf]='/etc/lxdm/lxdm.conf'
 	[lightdm_conf]='/etc/lightdm/lightdm.conf'
 	[lightdm_greeter_conf]='/etc/lightdm/lightdm-gtk-greeter.conf'
+	[torrc]='/etc/tor/torrc'
 )
 [ "$RELEASE" == 'jessie' ] && {
 	CFG_NAMES[supported_locales]='/etc/locale.gen'
@@ -669,10 +670,6 @@ GRUB_ENABLE_CRYPTODISK="y"'
 
 	cf_uncomment 'do_hdr' 'pam_su' 'auth sufficient pam_wheel.so trust'
 
-	msg "Adding user '$USER' to the 'wheel' group"
-	exec_or_die "chroot $USB_MNT_DIR groupadd -f -g 14 wheel"
-	exec_or_die "chroot $USB_MNT_DIR usermod -a -G wheel $USER"
-
 	[ "$DO_INSTALL_X" ] && {
 		BG='/usr/share/images/mmgen/login-background.png'
 		case "$RELEASE" in
@@ -697,6 +694,14 @@ GRUB_ENABLE_CRYPTODISK="y"'
 			*) die "$RELEASE: unknown release"
 		esac
 	}
+
+	cf_append 'do_hdr' 'torrc' '
+SocksPort 127.0.0.1:9050 PreferSocksNoAuth # what port to open for local application connections
+SafeSocks 1
+ControlPort 9051
+CookieAuthentication 1
+CookieAuthFileGroupReadable 1'
+
 	return 0
 }
 
@@ -1093,7 +1098,7 @@ function live_install_kernel() {
 }
 
 function live_install_system_utils() {
-	apt_get_install_chk 'ethtool dosfstools parted gdisk wipe lsof fbset man rfkill nano tmux vim sudo openssh-client rsync ppp network-manager-pptp iputils-arping xl2tpd tor tor-geoipdb openssh-server scrot feh' '--no-install-recommends'
+	apt_get_install_chk 'ethtool dosfstools parted gdisk wipe lsof fbset man rfkill nano tmux vim sudo openssh-client rsync ppp network-manager-pptp iputils-arping xl2tpd tor tor-geoipdb openssh-server scrot feh openvpn' '--no-install-recommends'
 
 }
 
@@ -1268,11 +1273,20 @@ function setup_sh_usb_update_mmgen() {
 	exec_or_die_print "(cd $DEST/${MMGEN_ARCHIVE_NAME/.tar.gz}; python ./setup.py --quiet install)"
 }
 function setup_sh_usb_config_misc() {
+	msg "Adding user '$USER' to the 'wheel' and 'debian-tor' groups"
+	exec_or_die "chroot $USB_MNT_DIR groupadd -f -g 14 wheel"
+	exec_or_die "chroot $USB_MNT_DIR usermod -a -G wheel,debian-tor $USER"
+
 	exec_or_die 'systemctl disable NetworkManager'
 	exec_or_die 'systemctl disable wpa_supplicant'
 	exec_or_die 'systemctl disable tor'
 	exec_or_die 'systemctl disable ssh'
+	exec_or_die 'systemctl disable openvpn'
+	exec_or_die 'systemctl disable apparmor'
 	exec_or_die 'systemctl enable rclocal-shutdown'
+	exec_or_die 'mkdir /etc/systemd/system/tor@default.service.d'
+	exec_or_die "echo -e '[Service]\nAppArmorProfile=' > /etc/systemd/system/tor@default.service.d/override.conf"
+
 	[ "$RELEASE" != 'xenial' ] && exec_or_die 'systemctl disable bluetooth'
 	exec_or_die "rm -rf /setup/progress /setup/last_apt_update"
 #	exec_or_die 'systemctl disable lvm2'
