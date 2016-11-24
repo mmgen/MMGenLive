@@ -261,15 +261,15 @@ function umount_img_boot() {
 function mount_img_root() {
 	LOOP_DEV=`losetup -f`
 	exec_or_die "losetup -P $LOOP_DEV $IMG_FILE"
-	close_luks_partition $DM_DEV
-	open_luks_partition $LOOP_DEV'p2' $DM_DEV
+	close_luks_partition $DM_DEV_IMG
+	open_luks_partition $LOOP_DEV'p2' $DM_DEV_IMG
 	gmsg "Mounting root partition of '$IMG_FILE' on '$IMG_ROOT_MNT_DIR' (via loop device)"
-	exec_or_die "mount /dev/mapper/$DM_DEV $IMG_ROOT_MNT_DIR"
+	exec_or_die "mount /dev/mapper/$DM_DEV_IMG $IMG_ROOT_MNT_DIR"
 }
 function umount_img_root() {
 	gmsg "Unmounting '$IMG_ROOT_MNT_DIR'"
 	exec_or_die "umount $IMG_ROOT_MNT_DIR"
-	close_luks_partition $DM_DEV
+	close_luks_partition $DM_DEV_IMG
 	exec_or_die "losetup -D"
 }
 function mount_root() {
@@ -510,6 +510,9 @@ function chroot_setup_user() {
 	exec_or_die "echo $USER:$PASSWD | chpasswd"
 #	exec_or_die "echo root:$PASSWD | chpasswd"  # no root login
 
+	gmsg "Removing old MMGen installation in home directory"
+	exec_or_die "su - $USER -c 'rm -rf src bin doc scripts'"
+
 	gmsg "Unpacking MMGen Python archive in user ~${USER}/src"
 	exec_or_die "chmod 644 /setup/$MMGEN_ARCHIVE_NAME"
 	exec_or_die "su - $USER -c 'mkdir -p src; tar -C src -xzf /setup/$MMGEN_ARCHIVE_NAME'"
@@ -710,6 +713,7 @@ function do_gen_locales()       { exec_or_die 'locale-gen'; }
 
 function install_mmgen_dependencies() {
 	depends 'location=chroot' && return
+	exec_or_die "cp /etc/resolv.conf $CHROOT_DIR/etc"
 	chroot_install $FUNCNAME
 }
 function install_vanitygen() {
@@ -1274,15 +1278,15 @@ function setup_sh_usb_update_mmgen() {
 }
 function setup_sh_usb_config_misc() {
 	msg "Adding user '$USER' to the 'wheel' and 'debian-tor' groups"
-	exec_or_die "chroot $USB_MNT_DIR groupadd -f -g 14 wheel"
-	exec_or_die "chroot $USB_MNT_DIR usermod -a -G wheel,debian-tor $USER"
+	exec_or_die "groupadd -f -g 14 wheel"
+	exec_or_die "usermod -a -G wheel,debian-tor $USER"
 
 	exec_or_die 'systemctl disable NetworkManager'
 	exec_or_die 'systemctl disable wpa_supplicant'
 	exec_or_die 'systemctl disable tor'
 	exec_or_die 'systemctl disable ssh'
 	exec_or_die 'systemctl disable openvpn'
-	exec_or_die 'systemctl disable apparmor'
+#	exec_or_die 'systemctl disable apparmor'
 	exec_or_die 'systemctl enable rclocal-shutdown'
 	exec_or_die 'mkdir /etc/systemd/system/tor@default.service.d'
 	exec_or_die "echo -e '[Service]\nAppArmorProfile=' > /etc/systemd/system/tor@default.service.d/override.conf"
@@ -1576,7 +1580,7 @@ FUNCNEST=30
 PROJ_NAME='MMGenLive'
 HOST='MMGenLive' USER='mmgen' PASSWD='mmgen'
 BOOTFS_LABEL='MMGEN_BOOT' ROOTFS_LABEL='MMGEN_ROOT'
-DM_DEV='mmgen_p2' DM_ROOT_DEV='root_fs'
+DM_DEV='mmgen_p2' DM_ROOT_DEV='root_fs' DM_DEV_IMG='img_p2'
 CHROOT_DIR="$RELEASE$ARCH_BITS.system_root"
 USB_MNT_DIR='usb_mnt' IMG_ROOT_MNT_DIR='img_mnt_root' IMG_BOOT_MNT_DIR='img_mnt_boot'
 LOOP_FILE='loop.img' LOOP_SIZE=3690 # 1M blocks
