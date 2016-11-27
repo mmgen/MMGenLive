@@ -61,6 +61,9 @@ tracking/transacting wallet with a full or pruned blockchain.
 
             sudo ./build_system.sh
 
+An up-to-date version of the MMGenLive internal documentation can be found
+[here][8]
+
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 [**Forum**][4] |
@@ -74,3 +77,4 @@ Donate: 15TLdmi5NYLdqmtCqczUs5pBPkJDXRs83w
 [5]: https://github.com/mmgen/mmgen/wiki/MMGen-Signing-Key
 [6]: https://github.com/mmgen/mmgen/
 [7]: https://sourceforge.net/projects/win32diskimager/
+[8]: https://github.com/mmgen/MMGenLive/wiki/MMGenLive-internal-documentation
