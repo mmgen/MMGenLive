@@ -61,8 +61,8 @@ tracking/transacting wallet with a full or pruned blockchain.
 
             sudo ./build_system.sh
 
-An up-to-date version of the MMGenLive internal documentation can be found
-[here][8]
+**An up-to-date version of the MMGenLive internal documentation can be found
+[here][8]**
 
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
