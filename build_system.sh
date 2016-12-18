@@ -19,12 +19,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-export LANG=en_US.UTF-8; export LANGUAGE=en
+export LANG='en_US.UTF-8'; export LANGUAGE='en'
 
 [ $EUID = '0' ] || { echo 'This script must be run as root'; exit; }
 PROGNAME=`basename $0`
 SCRIPT=$PROGNAME
 
+export VERSION=0.0.7
 declare -A RELEASES=(
 	[wily]="Ubuntu 15.10 'wily'"
 	[xenial]="Ubuntu 16.04 'xenial'"
@@ -109,7 +110,6 @@ for i in ${!DESCS[@]}; do
 	[ ${i:0:7} != 'chroot_' -a ${i:0:5} != 'live_' ] && TARGETS[$i]=${DESCS[$i]}
 done
 TARGET='build'
-
 
 while getopts haAbBcCdDGiLMor:sSuvxX OPT
 do
@@ -249,13 +249,23 @@ function umount_vfs() {
 }
 function mount_img_boot() {
 	LOOP_DEV=`losetup -f`
+	if [ -d "$IMG_ROOT_MNT_DIR/boot" ]; then
+		MNT_DIR="$IMG_ROOT_MNT_DIR/boot"
+	else
+		MNT_DIR="$IMG_BOOT_MNT_DIR"
+	fi
 	exec_or_die "losetup -P $LOOP_DEV $IMG_FILE"
-	gmsg "Mounting boot partition of '$IMG_FILE' on '$IMG_BOOT_MNT_DIR' (via loop device)"
-	exec_or_die "mount $LOOP_DEV'p1' $IMG_BOOT_MNT_DIR"
+	gmsg "Mounting boot partition of '$IMG_FILE' on '$MNT_DIR' (via loop device)"
+	exec_or_die "mount $LOOP_DEV'p1' $MNT_DIR"
 }
 function umount_img_boot() {
-	gmsg "Unmounting '$IMG_BOOT_MNT_DIR'"
-	exec_or_die "umount $IMG_BOOT_MNT_DIR"
+	if [ -d "$IMG_ROOT_MNT_DIR/boot" ]; then
+		MNT_DIR="$IMG_ROOT_MNT_DIR/boot"
+	else
+		MNT_DIR="$IMG_BOOT_MNT_DIR"
+	fi
+	gmsg "Unmounting '$MNT_DIR'"
+	exec_or_die "umount $MNT_DIR"
 	exec_or_die "losetup -D"
 }
 function mount_img_root() {
@@ -381,7 +391,7 @@ function delete_chroot() {
 }
 function build_mmgen_sdist() {
 	dbecho "=======> $FUNCNAME"
-	exec_or_die_print '(cd ../mmgen && rm -rf build test/tmp*)'
+	exec_or_die_print '(cd ../mmgen && rm -rf build tmp/j test/tmp* test/data_dir)'
 	exec_or_die_print '(cd ../mmgen && ./setup.py -q clean)'
 	exec_or_die_print '(cd ../mmgen && ./setup.py -q sdist 2>/dev/null)'
 }
@@ -453,11 +463,12 @@ function run_setup_in_chroot() {
 }
 function live_remove_packages() {
 	case "$RELEASE" in
-		wily|xenial) A='g++-5 gcc-5 autoconf libtool grub-gfxpayload-lists' ;;
-		jessie)      A='g++-4.9 g++-4.8 gcc-4.9 gcc-4.8 autoconf libtool' ;;
+		wily|xenial) A='grub-gfxpayload-lists' ;;
+		jessie)      A='' ;;
 		*) die "$RELEASE: unknown release"
 	esac
-	exec_or_die "apt-get --yes remove build-essential busybox-static colord colord-data fakeroot g++ gcc grub-common grub-efi-amd64-bin grub-pc grub-pc-bin grub2-common gvfs gvfs-backends gvfs-common gvfs-daemons gvfs-libs $A"
+# 	exec_or_die "apt-get --yes remove build-essential busybox-static colord colord-data fakeroot g++ gcc grub-common grub-efi-amd64-bin grub-pc grub-pc-bin grub2-common gvfs gvfs-backends gvfs-common gvfs-daemons gvfs-libs $A"
+	exec_or_die "apt-get --yes remove build-essential busybox-static colord colord-data fakeroot g++ grub-common grub-efi-amd64-bin grub-pc grub-pc-bin grub2-common gvfs gvfs-backends gvfs-common gvfs-daemons gvfs-libs $A"
 # lvm2
 	exec_or_die 'apt-get --yes autoremove'
 	# deborphan discovered no orphans, so don't need it
@@ -472,7 +483,7 @@ function chroot_install_mmgen_dependencies() {
 	apt_get_install_chk 'locales'
 	do_gen_locales
 
-	apt_get_install_chk 'gcc make python-pip python-dev python-pexpect python-ecdsa python-scrypt libssl-dev lynx curl git libpcre3-dev python-setuptools python-wheel' '--no-install-recommends'
+	apt_get_install_chk 'gcc libgmp-dev make python-pip python-dev python-pexpect python-ecdsa python-scrypt libssl-dev lynx curl git libpcre3-dev python-setuptools python-wheel' '--no-install-recommends'
 
 	gmsg 'Installing the Python Cryptography Toolkit'
 	exec_or_die 'pip install pycrypto'
@@ -537,7 +548,7 @@ function chroot_test_mmgen() {
 		done
 
 	gmsg 'Running the MMGen test suite'
-	eval "(su - $USER -c 'cd src/${MMGEN_ARCHIVE_NAME/.tar.gz}; LANG=en_US.UTF-8 test/test.py -s; test/test.py clean')" || {
+	eval "(su - $USER -c 'cd src/${MMGEN_ARCHIVE_NAME/.tar.gz}; LANG=en_US.UTF-8 test/test.py -Os; test/test.py clean')" || {
 		ymsg 'MMGen test suite failed'
 		eval "su - $USER -c 'bitcoin-cli stop'"
 		return 73
@@ -1102,8 +1113,7 @@ function live_install_kernel() {
 }
 
 function live_install_system_utils() {
-	apt_get_install_chk 'ethtool dosfstools parted gdisk wipe lsof fbset man rfkill nano tmux vim sudo openssh-client rsync ppp network-manager-pptp iputils-arping xl2tpd tor tor-geoipdb openssh-server scrot feh openvpn' '--no-install-recommends'
-
+	apt_get_install_chk 'patch ed ethtool dosfstools parted gdisk wipe lsof fbset man rfkill nano tmux vim sudo openssh-client rsync ppp network-manager-pptp iputils-arping xl2tpd tor tor-geoipdb openssh-server scrot feh openvpn' '--no-install-recommends'
 }
 
 function live_install_x() {
@@ -1113,14 +1123,14 @@ function live_install_x() {
 		jessie)      A='plymouth-themes plymouth-x11 lightdm' ;;
 		*) die "$RELEASE: unknown release"
 	esac
-	apt_get_install_chk "xserver-xorg xserver-xorg-video-fbdev x11-xserver-utils xinit xfce4 xfce4-notifyd xscreensaver desktop-base tango-icon-theme rxvt-unicode-256color fonts-dejavu network-manager-gnome vim-gtk crystalcursors xcursor-themes $A" '--no-install-recommends'
+	apt_get_install_chk "xserver-xorg xserver-xorg-video-vesa xserver-xorg-video-all xserver-xorg-video-fbdev x11-xserver-utils xinit xfce4 xfce4-notifyd xscreensaver desktop-base tango-icon-theme rxvt-unicode-256color fonts-dejavu network-manager-gnome vim-gtk crystalcursors xcursor-themes $A" '--no-install-recommends'
 }
 function usb_install_extras_tty() {
 	depends 'location=usb' mount_root && return
 	[ "$DO_INSTALL_EXTRAS_TTY" ] || return 73
 	check_extras_tty_present
 	exec_or_die "tar -C $USB_MNT_DIR -xzf $EXTRAS_TTY_ARCHIVE"
-	exec_or_die "tar -tzf $EXTRAS_TTY_ARCHIVE > $USB_MNT_DIR/setup/extras-tty.lst"
+	exec_or_die "tar -tzf $EXTRAS_TTY_ARCHIVE | grep -v '\/$' > $USB_MNT_DIR/setup/extras-tty.lst"
 }
 function usb_install_extras_gfx() {
 	depends 'location=usb' mount_root mount_boot_usb && return
@@ -1138,7 +1148,10 @@ function usb_install_extras_gfx() {
 	BG_DIR="$USB_MNT_DIR/usr/share/backgrounds/xfce"
 	exec_or_die "rm -f $BG_DIR/*"
 	exec_or_die "tar -C $USB_MNT_DIR -xzf $EXTRAS_GFX_ARCHIVE"
-	exec_or_die "tar -tzf $EXTRAS_GFX_ARCHIVE > $USB_MNT_DIR/setup/extras-tty.lst"
+	exec_or_die "tar -tzf $EXTRAS_GFX_ARCHIVE | grep -v '\/$' > $USB_MNT_DIR/setup/extras-gfx.lst"
+
+	# when tar recreates missing parent directories, they will have root ownership
+	exec_or_die "find $USB_MNT_DIR/home/$USER -exec chown $USER_UID:$USER_UID {} \\;"
 }
 function usb_create_grub_cfg_file() {
 	depends 'location=usb' umount_all mount_root mount_boot_usb && return
@@ -1196,7 +1209,7 @@ set classinfo='--class ubuntu --class gnu-linux --class gnu --class os'
 set kcryptoargs=\"root=/dev/mapper/$DM_ROOT_DEV cryptopts=source=\${rootfs_dev},target=$DM_ROOT_DEV rootfstype=ext4\"
 set kargs_gfx='ro quiet splash'
 set kargs_console='ro text systemd.mask=display-manager.service'
-set desc=\"$PROJ_NAME ${RELEASES[$RELEASE]}\" # release desc contains single quotes!
+set desc=\"$PROJ_NAME v$VERSION\" # release desc contains single quotes!
 
 menuentry \"\${desc} \${passwd_info}\" \${classinfo} {
 	echo \"Loading vmlinuz-\${kver}...\"
@@ -1276,10 +1289,73 @@ function setup_sh_usb_update_mmgen() {
 	exec_or_die_print "rm $DEST/$MMGEN_ARCHIVE_NAME"
 	exec_or_die_print "(cd $DEST/${MMGEN_ARCHIVE_NAME/.tar.gz}; python ./setup.py --quiet install)"
 }
+
+PUBKEY='-----BEGIN PGP PUBLIC KEY BLOCK-----
+Version: GnuPG v1
+
+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
+dRrWK1eeHDwJ7AnLSfwxBGc=
+=Amww
+-----END PGP PUBLIC KEY BLOCK-----
+'
+
 function setup_sh_usb_config_misc() {
-	msg "Adding user '$USER' to the 'wheel' and 'debian-tor' groups"
+	NEW_GROUPS='wheel,debian-tor'
+	msg "Adding user '$USER' to groups $NEW_GROUPS"
 	exec_or_die "groupadd -f -g 14 wheel"
-	exec_or_die "usermod -a -G wheel,debian-tor $USER"
+	exec_or_die "usermod -a -G $NEW_GROUPS $USER"
+
+	msg "Adding MMGen signing key to gpg keyring"
+	exec_or_die 'echo "$PUBKEY" | su - mmgen -c "gpg --import"'
+
+	msg -e "Creating version and revision files $YELLOW(version is '$VERSION')$RESET"
+	exec_or_die "su - $USER -c 'mkdir -p var'"
+	exec_or_die "su - $USER -c 'echo $VERSION >var/version; echo 0 >var/revision'"
 
 	exec_or_die 'systemctl disable NetworkManager'
 	exec_or_die 'systemctl disable wpa_supplicant'
@@ -1578,7 +1654,7 @@ function build() {
 FUNCNEST=30
 
 PROJ_NAME='MMGenLive'
-HOST='MMGenLive' USER='mmgen' PASSWD='mmgen'
+HOST='MMGenLive' USER='mmgen' USER_UID=1000 PASSWD='mmgen'
 BOOTFS_LABEL='MMGEN_BOOT' ROOTFS_LABEL='MMGEN_ROOT'
 DM_DEV='mmgen_p2' DM_ROOT_DEV='root_fs' DM_DEV_IMG='img_p2'
 CHROOT_DIR="$RELEASE$ARCH_BITS.system_root"
