@@ -7,17 +7,22 @@ set -e
 PROGNAME=$(basename $0)
 CURL='curl -s -L'
 URL_BASE='https://github.com/mmgen/MMGenLive/releases/download'
+MMLIVE_REPO='https://github.com/mmgen/MMGenLive.git'
 PROJ_NAME='MMLiveUpgrade'
 
-while getopts hT OPT
+while getopts hp:s OPT
 do
 	case "$OPT" in
 	h)  printf "  %-16s Upgrade an MMGen installation\n" "${PROGNAME^^}:"
 		echo   "  USAGE:           $PROGNAME"
 		echo   "  OPTIONS:   '-h'   Print this help message"
-		echo   "             '-T'   Connect via Tor proxy on localhost"
+#		echo   "             '-T'   Connect via Tor proxy on localhost"
+		echo   "             '-p h' Connect via proxy 'p' (host:port - protocol is http)"
+		echo   "             '-s'   Skip authentication of commits"
 		exit ;;
-	T) TOR=1 CURL='curl -s -L -x socks5h://localhost:9050' ;;
+#	T) TOR=1 CURL='curl -s -L -x socks5h://localhost:9050' ;;
+	p) PROXY=1 CURL="curl -s -L -x $OPTARG"; export all_proxy=$OPTARG;; # all_proxy is for git
+	s) SKIP_COMMIT_AUTH=1 ;;
 	*)  exit ;;
 	esac
 done
@@ -49,13 +54,16 @@ if [ -d "$GIT_DIR" ]; then
 	echo 'Updating MMGenLive git repository'
 	(
 		cd $GIT_DIR
+		[ -d '.git' ] || git clone $MMLIVE_REPO .
 		git pull --no-edit --force --strategy=recursive --strategy-option=theirs
 		LAST_COMMIT=$(git log --oneline --color=never --no-merges --pretty=%h | head -n1)
-		git verify-commit $LAST_COMMIT 2>/dev/null || {
-			echo 'Unable to verify latest commit. Aborting'
-			exit 1
+		[ "$SKIP_COMMIT_AUTH" ] || {
+			git verify-commit $LAST_COMMIT 2>/dev/null || {
+				echo 'Unable to verify latest commit. Aborting'
+				exit 1
+			}
+			echo 'Signature on latest commit OK'
 		}
-		echo 'Signature on latest commit OK'
 	)
 fi
 
