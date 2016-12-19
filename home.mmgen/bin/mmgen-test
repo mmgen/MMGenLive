@@ -1,0 +1,24 @@
+#!/bin/bash
+
+PROGNAME=`basename $0`
+
+while getopts h OPT
+do
+	case "$OPT" in
+	h)  printf "  %-16s Test the MMGen suite\n" "${PROGNAME^^}:"
+		echo   "  USAGE:           $PROGNAME [options]"
+		echo   "  OPTIONS:   '-h'  Print this help message"
+		exit ;;
+	*)  exit ;;
+	esac
+done
+
+shift $((OPTIND-1))
+
+bitcoin-cli getbalance >/dev/null 2>&1 || {
+    echo 'You must start bitcoind before running the tests'
+    exit
+}
+
+cd ~/src/mmgen-*
+test/test.py -s

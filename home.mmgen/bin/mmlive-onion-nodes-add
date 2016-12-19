@@ -1,0 +1,62 @@
+#!/bin/bash
+
+PROGNAME=`basename $0`
+
+while getopts ht OPT
+do
+	case "$OPT" in
+	h)  printf "  %-16s Add Onion nodes to a running Bitcoin Core daemon\n" "${PROGNAME^^}:"
+		echo   "  USAGE:           $PROGNAME"
+		echo   "  OPTIONS:   '-h'  Print this help message"
+		echo   "             '-t'  Node is running on testnet"
+		exit ;;
+	t)  TESTNET_ARG=' -testnet=1' ;;
+	*)  exit ;;
+	esac
+done
+
+shift $((OPTIND-1))
+
+NODES=(2g2r6rmwtkg5dkie.onion
+2gdlmvmssprpbxpi.onion
+4iuf2zac6aq3ndrb.onion
+53tsjt6zq3iasv5q.onion
+5gbcrgqxcbxj253s.onion
+assbiydziq77zaki.onion
+bk5ejfe56xakvtkk.onion
+bpdlwholl7rnkrkw.onion
+btcnet3utgzyz2bf.onion
+ccfxptj3yi2ysa7w.onion
+cyz34extar33i6ps.onion
+e3tn727fywnioxrc.onion
+fnh6hqbwlu227vxx.onion
+fnh6hqbwlu227vxx.onion
+hhiv5pnxenvbf4am.onion
+i2r5tbaizb75h26f.onion
+kjy2eqzk4zwi5zd3.onion
+m65tf7pgh434xnqj.onion
+nkf5e6b7pl4jfd4a.onion
+p6np7azo6f5d5jy2.onion
+pqosrh6wfaucet32.onion
+r4de4zf4lyniu4mx.onion:8444
+rmcqxkwl6vrxbg4q.onion
+smith4mfhwcq7x3b.onion
+ul3rmazdin7ygr65.onion
+v3gjphgqy5hygcml.onion
+vso3r6cmjoomhhgg.onion
+wxvp2d4rspn7tqyu.onion
+xoxoxka3hgpokemn.onion
+xudkoztdfrsuyyou.onion
+z7k72iuir6alzqvq.onion
+zw5ooki43ayx54xb.onion
+zy3kdqowmrb7xm7h.onion)
+
+MIN_CONNS=5
+for node in ${NODES[*]}; do
+	echo "Adding node $node"
+	eval "bitcoin-cli$TESTNET_ARG addnode $node add"
+	CONNS=`bitcoin-cli$TESTNET_ARG getinfo | grep connections | tr -dc 0-9`
+	[ "$CONNS" -ge "$MIN_CONNS" ] && { echo -e "Enough connections ($CONNS)\nExiting"; exit; }
+	sleep 5
+	echo -n "$CONNS connections.  ENTER to add another node, Ctrl-C to exit: "; read
+done

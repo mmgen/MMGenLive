@@ -1,0 +1,76 @@
+A hyperlinked and possibly more up-to-date version of this document can be
+found here: https://github.com/mmgen/MMGenLive/wiki/README.fullnode
+
+Running a full bitcoin node on your MMGenLive system
+
+  Setting up the node using the automated script ‘mmlive-node-setup’
+
+   To set up a full node using the automated script, you need a hard drive of
+   at least 300 GB capacity installed on or attached to your computer. The
+   disk will be reformatted and repartitioned. Any existing data on it will
+   be lost.
+
+   (If you’d prefer use an existing partition rather than reformat your disk,
+   refer to the instructions in ‘doc/README.MMGenLive’.)
+
+   A boot partition will be added to the disk, allowing you to use it as a
+   system disk as well as for storing the blockchain.
+
+   If you have more than one >300GB disk installed, you’ll be prompted to
+   choose which one you want to use.
+
+   Execute the following command to perform the setup:
+
+     mmlive-node-setup
+
+  Running the node
+
+   After setup is finished, enable networking and ensure you’re connected to
+   the Internet:
+
+     mmlive-networking-enable
+     ping bitcoin.org (exit with Ctrl-C)
+
+   MMGenLive relies on NetworkManager, which should work in most situations.
+   Setting up more advanced network configurations such as VPNs, PPPoE or
+   tunnels is beyond the scope of this introduction.
+
+   Now you can start your node:
+
+     mmlive-node-start
+
+   If all goes well, it will connect to other nodes on the Bitcoin network
+   and start syncing the blockchain. You may follow your syncing progress by
+   examining the log file:
+
+     tail -f ~/.bitcoin/debug.log (exit with Ctrl-C)
+
+   Syncing the full blockchain can take up to a day or more, depending on the
+   power of your CPU and, to a lesser extent, the speed of your disk and
+   network connection. You can stop and restart your node whenever you want.
+   Stop it with the command:
+
+    bitcoin-cli stop
+
+  Running a Tor hidden node
+
+   If you’d prefer to run your node exclusively as a Tor hidden service, then
+   first start Tor:
+
+     sudo systemctl start tor
+
+   and then start your node with the ‘-T’ switch:
+
+     mmlive-node-start -T
+
+   You’ll have no connections at first until you seed your node with one or
+   more existing nodes on the network. The following command will try to
+   connect to a list of known onion nodes one by one until it succeeds:
+
+     mmlive-onion-nodes-add
+
+   In the unlikely event you still have no connections, you’ll have to search
+   the Internet or inquire on Bitcoin forums for working onion nodes. Once
+   you’ve obtained one, add it to the command line like this:
+
+     mmlive-node-start -T -s <working onion node>

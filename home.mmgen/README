@@ -1,0 +1,54 @@
+A hyperlinked and possibly more up-to-date version of this document can be
+found here: https://github.com/mmgen/MMGenLive/wiki/README
+
+MMGenLive
+
+   MMGenLive is a fully functional Linux system with the MMGen online/offline
+   Bitcoin wallet and related programs preinstalled. The latest MMGenLive
+   bootable image can be found at the MMGenLive project page
+
+  MMGenLive gives you, out of the box:
+
+     * A minimal but fully upgradeable and configurable Ubuntu Linux system
+       on a USB stick (the system currently occupies 1.2GB of disk space)
+     * Full disk encryption, read/write filesystem
+     * Bitcoin Core, and the MMGen wallet system preinstalled
+     * Administrative scripts to make setup and configuration easy
+
+   MMGenLive can be used both as an offline signing wallet and as an online
+   tracking/transacting wallet with a full or pruned blockchain.
+
+  Quick Start
+
+    1. Practice switching back and forth between terminal tabs using
+       Ctrl-PGDOWN. You’ll use this tab for viewing documentation and the
+       other one for typing commands.
+    2. In the other tab, type ‘mmlive-node-start -o’ to start bitcoind in
+       offline mode. Note that the TAB key will conveniently complete
+       partially-typed commands for you.
+    3. Exit this pager with ‘q’ and type ‘less
+       doc/Getting-Started-with-MMGen’. Follow the step-by-step instructions
+       in the primer.
+
+  Documentation
+
+     * Type ‘less doc/README.MMGenLive’ for help with this MMGenLive
+       installation.
+     * Type ‘less doc/Getting-Started-with-MMGen’ for a primer on the MMGen
+       wallet. (If this is an older version of MMGenLive, you might find more
+       up-to-date versions of these files in the source repositories listed
+       below.)
+     * Type ‘less doc/README.Unix’ for help using the Unix command line.
+     * Type ‘less doc/README.Vim’ for help using the Vim editor.
+
+  Online Resources
+
+     * MMGenLive project page
+     * MMGen project page
+
+References
+
+   Visible links
+   . https://github.com/mmgen/MMGenLive
+   . https://github.com/mmgen/MMGenLive
+   . https://github.com/mmgen/mmgen

@@ -1,0 +1,17 @@
+#!/bin/bash
+
+PROGNAME=`basename $0`
+while getopts h OPT
+do
+	case "$OPT" in
+	h)  printf "  %-16s Change the user password\n" "${PROGNAME^^}:"
+		echo   "  USAGE:           $PROGNAME [options]"
+		echo   "  OPTIONS:   '-h'  Print this help message"
+		exit ;;
+	*)  exit ;;
+	esac
+done
+
+shift $((OPTIND-1))
+
+passwd

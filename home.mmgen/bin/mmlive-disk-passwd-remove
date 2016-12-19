@@ -1,0 +1,28 @@
+#!/bin/bash
+
+PROGNAME=`basename $0`
+while getopts h OPT
+do
+	case "$OPT" in
+	h)  printf "  %-16s Remove a disk password\n" "${PROGNAME^^}:"
+		echo   "  USAGE:           $PROGNAME [options]"
+		echo   "  OPTIONS:   '-h'  Print this help message"
+        echo
+		echo   "  This script removes an existing disk password.  You must first add a new"
+		echo   "  password using 'disk-passwd-add' before you can use it."
+		echo
+		echo   "  NOTE: You'll be warned if you attempt to remove the only remaining password" 
+		echo   "  for the disk."
+		exit ;;
+	*)  exit ;;
+	esac
+done
+
+DM_DEV='root_fs'
+DEV=`sudo cryptsetup status $DM_DEV | grep device | awk '{ print $2 }'`
+ENABLED_KEYSLOTS=`sudo cryptsetup luksDump $DEV | grep "Key Slot.*ENABLED" | wc -l`
+[ "$ENABLED_KEYSLOTS" -le 1 ] && { echo "Cannot remove last password: disk has only one password"; exit; }
+sudo cryptsetup luksRemoveKey $DEV
+if [ $? -eq 0 ]; then
+	echo 'Disk password successfully removed'
+fi

@@ -1,0 +1,218 @@
+#!/bin/bash
+
+if [ "$EUID" == 0 ]; then
+	if [ "$1" == '--self-called' ]; then
+		shift
+	else
+		echo 'This script must be run as user, not as root'; exit 1
+	fi
+fi
+
+PROGNAME=`basename $0`
+PROJ_NAME='NodeSetup'
+
+while getopts h OPT
+do
+	case "$OPT" in
+	h)  printf "  %-16s set up a Bitcoin Core node for a MMGen system\n" "${PROGNAME^^}:"
+		echo   "  USAGE:           $PROGNAME"
+		echo   "  OPTIONS:   '-h'  Print this help message"
+		exit ;;
+	*)  exit ;;
+	esac
+done
+
+shift $((OPTIND-1))
+
+. ~/scripts/include/functions.sh
+
+function search_for_disk() {
+	GB=1000000000
+	MIN_DISK_SIZE=300
+	gmsg "Searching for hard drive larger than $MIN_DISK_SIZE GB"
+	DISK_INFO=$(lsblk -b -o NAME,SIZE,TYPE | grep disk | awk '{ print $1, $2  }')
+	MIN=$((MIN_DISK_SIZE*GB)) 
+#	MIN=1
+	LARGE_DISKS=$(echo "$DISK_INFO" | (
+			while read a b; do
+					[ "$b" -gt $MIN ] && echo $a $b "$(lsblk -n -o SIZE /dev/$a | head -n1)"
+				done
+			))
+	[ "$LARGE_DISKS" ] || {
+		echo "No disks larger than $MIN_DISK_SIZE GB found.  Aborting"
+		exit 1
+	}
+	NUM_LARGE_DISKS=$(echo "$LARGE_DISKS" | wc -l)
+	if [ "$NUM_LARGE_DISKS" -gt 1 ]; then
+		while true; do
+			echo 'Found more than one large disk on your system.  Which do you want to use?'
+			i=1
+			echo "$LARGE_DISKS" | (while read a b c; do echo " $i)  /dev/$a  $c"; let i++; done)
+			echo -n 'Enter a number: '; read DISK_NUM
+			[ "$DISK_NUM" -gt 0 -a "$DISK_NUM" -le $NUM_LARGE_DISKS ] && break
+			echo "$DISK_NUM: Invalid disk number"
+		done
+	else
+		DISK_NUM=1
+	fi
+	SELECTED_DISK=$(echo "$LARGE_DISKS" | head -n$DISK_NUM | tail -n1 | awk '{ print "/dev/"$1, $3 }')
+	echo "Using disk #$DISK_NUM ($SELECTED_DISK)"
+	SELECTED_DISK=${SELECTED_DISK/ *}
+}
+
+function check_disk() {
+	if [ "$(lsblk -n ${1}2 -o LABEL,FSTYPE)" == "BLOCKCHAIN ext4" ]; then
+		echo 'Existing MMGenLive installation detected.'
+		echo -n 'Use existing installation? (Y/n): '; read
+		echo "$REPLY" | egrep '^(y|Y||)$' && return 2
+	fi
+	if lsblk -n $1 | grep -q part; then
+		echo 'Disk has existing partitions! All data on the disk will be destroyed.'
+		echo -n 'Proceed anyway? (y/N): '; read
+		echo "$REPLY" | egrep '^(y|Y)$' && return 0
+		return 1
+	else
+		echo 'Disk has no partitions and appears to empty.'
+		echo -n 'Proceed with disk partition? (Y/n): '; read
+		echo "$REPLY" | egrep '^(n|N)$' && return 1
+		return 0
+	fi
+}
+
+function partition_disk() {
+
+	BS_SIZE=4 BOOTFS_SIZE=250
+	DISK_SIZE=$(lsblk -n -o SIZE -b $1 | head -n1) DISK_SIZE=$((DISK_SIZE/1024/1024))
+	MAIN_SIZE=$((DISK_SIZE-BS_SIZE-BOOTFS_SIZE))
+
+	gmsg 'Creating gpt disk label'
+	exec_or_die "parted -s $1 mklabel gpt"
+
+	gmsg "Creating $BOOTFS_SIZE MiB boot partition"
+	exec_or_die "parted -s $1 mkpart fat32 ${BS_SIZE}MiB $((BS_SIZE+BOOTFS_SIZE))MiB"
+	exec_or_die "parted -s $1 set 1 boot on"
+
+	gmsg "Creating $MAIN_SIZE MiB main partition"
+	exec_or_die "parted -s $1 mkpart ext4 $((BS_SIZE+BOOTFS_SIZE))MiB ${MAIN_SIZE}MiB"
+
+	echo
+}
+
+function make_fs() {
+	gmsg 'Creating filesystem on boot partition'
+	exec_or_die "mkfs.fat -F32 -n 'BOOT' ${1}1 2>/dev/null"
+
+	umount $MOUNTPOINT 2>/dev/null # if automounted
+
+	gmsg 'Creating filesystem on main partition'
+	exec_or_die "mkfs.ext4 -q -L 'BLOCKCHAIN' ${1}2"
+
+	echo
+}
+
+MOUNTPOINT='/mnt/disk1'
+DATA_DIR="$MOUNTPOINT/bitcoin"
+USER='mmgen' GROUP='mmgen'
+function mount_fs() {
+
+	gmsg "Creating mountpoint '$MOUNTPOINT' for main partition"
+	exec_or_die "mkdir -p $MOUNTPOINT"
+
+	if ! grep -q "$MOUNTPOINT" /etc/fstab; then
+		gmsg "Creating fstab entry for '$MOUNTPOINT'"
+		echo "${1}2 $MOUNTPOINT ext4 defaults 0 2" >> /etc/fstab
+	fi
+
+	if ! mount | grep -q "$MOUNTPOINT"; then
+		gmsg "Mounting partition on '$MOUNTPOINT'"
+		exec_or_die "mount $MOUNTPOINT"
+		exec_or_die "chown ${USER}.$GROUP $MOUNTPOINT"
+	fi
+
+	if [ ! -d $DATA_DIR ]; then
+		gmsg "Creating data directory '$DATA_DIR'"
+		exec_or_die "mkdir -p $DATA_DIR"
+	fi
+	exec_or_die "chown ${USER}.$GROUP $DATA_DIR"
+}
+
+TMP_DATA_DIR='/dev/shm/bitcoind-tmp-data-dir'
+TW_FILE='mmgen-tracking-wallet.dat'
+function create_twallet() {
+	exec_or_die "rm -rf $TMP_DATA_DIR"
+	exec_or_die "mkdir -p $TMP_DATA_DIR"
+
+	exec_or_die "bitcoind -daemon -maxconnections=0 -listen=0 -keypool=1 -datadir=$TMP_DATA_DIR -wallet=$TW_FILE"
+
+	echo -n 'Generating tracking wallet.'
+	while true; do
+		sleep 2
+		echo -n '.'
+		grep -q 'dnsseed thread start' $TMP_DATA_DIR/debug.log && break
+	done
+	echo "done"
+	exec_or_die "sync"
+	exec_or_die "sleep 3"
+	exec_or_die "sync"
+	exec_or_die "bitcoin-cli -datadir=$TMP_DATA_DIR stop"
+	exec_or_die "sync"
+}
+MMGEN_DATA_DIR="$HOME/.mmgen"
+HOME_BITCOIN_DATA_DIR="$HOME/.bitcoin"
+BACKUP_BITCOIN_DATA_DIR="$HOME/.bitcoin.old"
+function copy_and_link_twallet() {
+
+	if [ ! -f $MMGEN_DATA_DIR/$TW_FILE ]; then # Don't clobber existing tw
+		echo "Copying tracking wallet to '$MMGEN_DATA_DIR'"
+		exec_or_die "mkdir -p $MMGEN_DATA_DIR" 
+		exec_or_die "cp -i $TMP_DATA_DIR/$TW_FILE $MMGEN_DATA_DIR" 
+	fi
+
+	if [ -d $HOME_BITCOIN_DATA_DIR ]; then
+		echo "Moving old bitcoin data directory"
+		exec_or_die "mv -f $HOME_BITCOIN_DATA_DIR $BACKUP_BITCOIN_DATA_DIR"
+	fi
+
+	[ -e $HOME_BITCOIN_DATA_DIR ] && exec_or_die "rm $HOME_BITCOIN_DATA_DIR"
+
+	echo "Linking '$DATA_DIR' to '$HOME_BITCOIN_DATA_DIR'"
+	exec_or_die "(cd && ln -s $DATA_DIR $HOME_BITCOIN_DATA_DIR)"
+
+	echo "Linking '$MMGEN_DATA_DIR/$TW_FILE' to '$HOME_BITCOIN_DATA_DIR'"
+	exec_or_die "(cd $HOME_BITCOIN_DATA_DIR && ln -sf $MMGEN_DATA_DIR/$TW_FILE)"
+
+}
+function check_mounted() {
+	if mount | grep -q "^$1"; then
+		echo "Device '$1' has mounted partitions.  Cannot proceed."
+		return 1
+	else
+		return 0
+	fi
+}
+function do_setup_root() {
+	while true; do
+		search_for_disk
+		check_mounted $SELECTED_DISK || exit 1
+		check_disk $SELECTED_DISK && break
+		[ "$?" == 2 ] && { mount_fs $SELECTED_DISK; echo; exit 0; }  # 'use existing installation'
+		echo
+	done
+	partition_disk $SELECTED_DISK
+	make_fs $SELECTED_DISK
+	mount_fs $SELECTED_DISK
+	exit 0
+}
+function do_setup_user() {
+	bmsg 'Entering user setup'
+	create_twallet
+	copy_and_link_twallet
+	bmsg "Setup is finished!\nFor instructions on starting your node, see 'README.fullnode'"
+}
+if [ "$EUID" == 0 ]; then
+	bmsg 'Entering admin setup'
+	do_setup_root
+else
+	sudo $0 --self-called $@ && do_setup_user
+#	gmsg 'Press ENTER to exit'; read
+fi

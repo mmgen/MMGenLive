@@ -1,0 +1,26 @@
+#!/bin/bash
+
+PROGNAME=`basename $0`
+while getopts h OPT
+do
+	case "$OPT" in
+	h)  printf "  %-16s Add a disk password\n" "${PROGNAME^^}:"
+		echo   "  USAGE:           $PROGNAME [options]"
+		echo   "  OPTIONS:   '-h'  Print this help message"
+        echo
+		echo   "  It's possible to have more than one disk password."
+		echo
+		echo   "  This script adds a new disk password without removing the existing one"
+		echo   "  (or ones).  If you wish to remove an existing disk password after you've"
+        echo   "  added a new one, run the command 'disk-passwd-remove' afterwards."
+		exit ;;
+	*)  exit ;;
+	esac
+done
+
+DM_DEV='root_fs'
+DEV=`sudo cryptsetup status $DM_DEV | grep device | sed 's/.*\s//'`
+sudo cryptsetup luksAddKey $DEV
+if [ $? -eq 0 ]; then
+	echo 'Disk password successfully added'
+fi

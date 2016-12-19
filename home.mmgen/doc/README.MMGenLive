@@ -1,0 +1,140 @@
+A hyperlinked and possibly more up-to-date version of this document can be
+found here: https://github.com/mmgen/MMGenLive/wiki/README.MMGenLive
+
+Using Your MMGenLive Installation
+
+  The terminal
+
+   By default, the MMGenLive installation starts up with a terminal window
+   open. To change the size of the terminal, double-click the ‘Large
+   Terminal’ or ‘Small Terminal’ icons on the desktop.
+
+   Two shells are running in the terminal session. Use ‘Ctrl-PgDown’ to
+   switch between them. Additional shells may be opened by typing ‘Ctrl-B’
+   followed by ‘c’. Exit a shell with ‘exit’ or ‘Ctrl-D’.
+
+   The superuser shell (‘#’) allows you to run commands requiring superuser
+   (root) privileges, such as ‘apt-get update’. You can upgrade yourself to
+   superuser with the command ‘su’. Superuser commands may also be run in the
+   user shell (‘$’) by prefixing them with ‘sudo’.
+
+   The terminal’s text and background color, as well as its default size, may
+   be customized by (carefully) editing variables in the file
+   ‘scripts/term/vars.sh’.
+
+  Upgrading your system automatically
+
+   MMGenLive is upgraded regularly with revisions that fix bugs or introduce
+   new features. To keep your system up to date with the latest revisions,
+   just type ‘mmlive-upgrade’ from time to time. The upgrade process is
+   automated, requiring little or often no user interaction.
+
+  The mmlive- administrative commands
+
+   The following commands make administrative tasks on your MMGenLive system
+   easier. To access these commands, type ‘mml<TAB>’ at the command prompt
+   and use autocompletion to finish typing the command name.
+
+            Command                       Description
+   mmlive-disk-passwd-add    add a disk password
+   mmlive-disk-passwd-remove remove a disk password
+   mmlive-user-passwd-chg    change the login password
+   mmlive-autologin-disable  disable autologin at bootup
+   mmlive-autologin-enable   re-enable autologin at bootup
+   mmlive-networking-enable  enable networking (wired or wireless)
+   mmlive-networking-disable disable networking (wired or wireless)
+   mmlive-wifi-enable        enable (unblock) wireless networking
+   mmlive-wifi-disable       disable (block) wireless networking
+   mmlive-bluetooth-enable   enable (unblock) bluetooth
+   mmlive-bluetooth-disable  disable (block) bluetooth
+
+   For more detailed help on each command, type ‘<command name> -h’. For
+   example, ‘mmlive-disk-passwd-add -h’ will print usage information for the
+   ‘mmlive-disk-passwd-add’ command.
+
+   For security considerations, networking, wifi and bluetooth are disabled
+   by default. Use the respective commands above to enable them.
+
+   NOTE: the network-related scripts are a work in progress and are not
+   guaranteed to work at the time of this writing.
+
+   The following convenience commands are also available:
+
+         Command                         Description
+   mmlive-node-start    start the Bitcoin Core daemon in online mode
+   mmlive-node-start -o start the Bitcoin Core daemon in offline mode
+   mmgen-test           test the MMGen installation
+
+   All of the aforementioned commands are bash shell scripts. You may view
+   the scripts in the pager or text editor to examine the underlying commands
+   they run.
+
+   ‘Ctrl-C’ aborts a running command. One that stubbornly refuses to stop may
+   be terminated with ‘Ctrl-'
+
+  Running a full node node with an existing blockchain or partition
+
+   NOTE: setting up and starting a full Bitcoin node is now handled
+   automatically by the scripts ‘mmlive-node-setup’ and ‘mmlive-node-start’,
+   so most can skip the following information. However, if you want to store
+   the blockchain on an existing disk partition instead of reformatting your
+   disk, you may find it of interest.
+
+   Your MMGenLive installation can be used to run a full Bitcoin node. For
+   one, now that Bitcoin Core supports wallet operations with a pruned
+   blockchain, running a blockchain directly on the USB stick might be
+   possible, though this hasn’t been tested.
+
+   A more practical solution is to use a hard drive on the same computer
+   MMGenLive is running on to store the blockchain, assuming the computer has
+   a hard drive. You must find a partition on the drive with enough free
+   space to hold the blockchain and related data, which occupy around 100 GB
+   at the time of this writing.
+
+   First, you must determine which drive and partition the datadir (or
+   potential datadir) is located on. Disk drives are represented in Linux as
+   device files in the ‘/dev’ directory and usually begin with the letters
+   ‘sd’. For example ‘/dev/sda1’ is the first partition on what the system
+   considers to be the first disk. If you have several hard disks or
+   partitions, you may have to do a bit of detective work here. The commands
+   ‘lsblk’ and ‘blkid’ are great tools for identifying disks.
+
+   Let’s suppose disk 1, partition 2 (or ‘/dev/sda2’) is the location of your
+   existing or proposed datadir. Then the commands
+
+         sudo mkdir /mnt/mydisk
+         sudo mount /dev/sda2 /mnt/mydisk
+
+   would create the directory ‘/mnt/mydisk’ and mount the partition at that
+   location.
+
+   Assuming the mount operation succeeded, you can then move to your new
+   mount with ‘cd /mnt/mydisk’ and issue the command
+
+         sudo find -name .bitcoin
+
+   to locate the Bitcoin Core data directory on the partition, if it exists.
+   If there is no existing datadir, then just create one of your choosing at
+   any location using the command ‘mkdir’. Now ‘cd’ to the datadir you’ve
+   located or created, and issue the command
+
+         sudo find -exec chown mmgen.mmgen {} \;
+
+   Now return to your home directory with the command ‘cd’, rename your
+   existing ‘.bitcoin’ directory to, say, ‘.bitcoin2’ with the command
+
+         mv .bitcoin .bitcoin2
+
+   and link your new datadir here with
+
+         ln -s <full path to datadir> .bitcoin
+
+   That’s it! Now you can start up bitcoind:
+
+         bitcoind -daemon -wallet=mmgen-tracking-wallet.dat
+
+   This will make bitcoind create ‘mmgen-tracking-wallet.dat’ at startup and
+   use it in place of any existing ‘wallet.dat’. To watch bitcoind’s progress
+   as it checks and syncs the blockchain, issue the command
+
+         tail -f ~/.bitcoin/debug.log

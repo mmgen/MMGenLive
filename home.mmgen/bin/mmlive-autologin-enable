@@ -1,0 +1,28 @@
+#!/bin/bash
+
+PROGNAME=`basename $0`
+DO_WHAT=${PROGNAME#mmlive-autologin-}
+
+while getopts h OPT
+do
+	case "$OPT" in
+	h)  printf "  %-16s ${DO_WHAT^} autologin on startup\n" "${PROGNAME^^}:"
+		echo   "  USAGE:           $PROGNAME [options]"
+		echo   "  OPTIONS:   '-h'  Print this help message"
+		exit ;;
+	*)  exit ;;
+	esac
+done
+
+shift $((OPTIND-1))
+
+. ~/scripts/include/functions.sh
+
+case $DO_WHAT in
+    enable)  PAT="^# autologin=$USER" REPL="autologin=$USER" ;;
+    disable) PAT="^autologin=$USER" REPL="# autologin=$USER" ;;
+    *) echo "$PROGNAME: invalid script name"; exit ;;
+esac
+
+cf_edit '/etc/lxdm/lxdm.conf' "$PAT" "$REPL" || M=' already'
+echo "Autologin$M ${DO_WHAT}d"

@@ -94,8 +94,7 @@ declare -A DESCS=(
 	[usb_create_grub_cfg_file]='create GRUB configuration file (grub.cfg)'
 	[usb_create_system_cfg_files]='create system configuration files on USB drive'
 	[usb_gen_locales]='generate configured locales'
-	[usb_install_extras_gfx]='install X Windows extras'
-	[usb_install_extras_tty]='install console extras'
+	[usb_install_extras]='install console and gfx extras and copy homedir files'
 	[usb_pre_initramfs]='do pre-update-initramfs configurations on USB drive'
 	[usb_update_initramfs]='generate the init RAM filesystem'
 	[usb_update_mmgen]='update the MMGen installation on the USB stick'
@@ -1042,7 +1041,7 @@ function usb_copy_userdir() {
 	exec_or_die "rm -rf $USB_MNT_DIR/home/$USER"
 	msg "Copying '/home/$USER' to LUKS partition"
 	exec_or_die "cp -a $CHROOT_DIR/home/$USER $USB_MNT_DIR/home"
-	yecho "You should now run 'usb_install_extras_tty' and 'usb_install_extras_gfx'"
+	yecho "You should now run 'usb_install_extras'"
 }
 function backup_apt_archives() {
 	[ "$NO_APT_BACKUP" ] && return
@@ -1125,14 +1124,13 @@ function live_install_x() {
 	esac
 	apt_get_install_chk "xserver-xorg xserver-xorg-video-vesa xserver-xorg-video-all xserver-xorg-video-fbdev x11-xserver-utils xinit xfce4 xfce4-notifyd xscreensaver desktop-base tango-icon-theme rxvt-unicode-256color fonts-dejavu network-manager-gnome vim-gtk crystalcursors xcursor-themes $A" '--no-install-recommends'
 }
-function usb_install_extras_tty() {
+function usb_install_extras() {
 	depends 'location=usb' mount_root && return
 	[ "$DO_INSTALL_EXTRAS_TTY" ] || return 73
 	check_extras_tty_present
 	exec_or_die "tar -C $USB_MNT_DIR -xzf $EXTRAS_TTY_ARCHIVE"
 	exec_or_die "tar -tzf $EXTRAS_TTY_ARCHIVE | grep -v '\/$' > $USB_MNT_DIR/setup/extras-tty.lst"
-}
-function usb_install_extras_gfx() {
+
 	depends 'location=usb' mount_root mount_boot_usb && return
 	[ "$DO_INSTALL_EXTRAS_GFX" ] || return 73
 	check_extras_gfx_present
@@ -1149,6 +1147,9 @@ function usb_install_extras_gfx() {
 	exec_or_die "rm -f $BG_DIR/*"
 	exec_or_die "tar -C $USB_MNT_DIR -xzf $EXTRAS_GFX_ARCHIVE"
 	exec_or_die "tar -tzf $EXTRAS_GFX_ARCHIVE | grep -v '\/$' > $USB_MNT_DIR/setup/extras-gfx.lst"
+
+	msg 'Copying home directory files'
+	exec_or_die "cp -a home.mmgen/* $USB_MNT_DIR/home/$USER/"
 
 	# when tar recreates missing parent directories, they will have root ownership
 	exec_or_die "find $USB_MNT_DIR/home/$USER -exec chown $USER_UID:$USER_UID {} \\;"
@@ -1592,8 +1593,7 @@ function build_usb() {
 	depends virtual \
 		usb_copy_system \
 		usb_create_system_cfg_files \
-		usb_install_extras_tty \
-		usb_install_extras_gfx \
+		usb_install_extras \
 		usb_pre_initramfs \
 		usb_update_initramfs \
 		usb_gen_locales \

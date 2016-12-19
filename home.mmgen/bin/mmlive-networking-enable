@@ -1,0 +1,28 @@
+#!/bin/bash
+
+PROGNAME=`basename $0` DO_WHAT=${PROGNAME#mmlive-networking-}
+#SERVICE='NetworkManager'
+SERVICE='network-manager'
+
+while getopts h OPT
+do
+	case "$OPT" in
+	h)  printf "  %-16s ${DO_WHAT^} networking\n" "${PROGNAME^^}:"
+		echo   "  USAGE:           $PROGNAME [options]"
+		echo   "  OPTIONS:   '-h'  Print this help message"
+		exit ;;
+	*)  exit ;;
+	esac
+done
+
+shift $((OPTIND-1))
+
+UP_IFS=`ip link | grep -v LOOPBACK | grep '\<UP\>' | awk '{ print $2 }' | tr -d :`
+for i in $UP_IFS; do
+	echo "Taking down $i"
+	sudo ip link set $i down
+done
+
+[ $DO_WHAT == 'disable' ] && sudo systemctl stop $SERVICE
+sudo systemctl $DO_WHAT $SERVICE
+[ $DO_WHAT == 'enable' ] && sudo systemctl start $SERVICE

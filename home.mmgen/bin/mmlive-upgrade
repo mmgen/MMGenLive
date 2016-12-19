@@ -1,0 +1,69 @@
+#!/bin/bash
+
+set -e
+
+[ "$EUID" == 0 ] && { echo 'This script must be run as user, not as root'; exit 1; }
+
+PROGNAME=$(basename $0)
+CURL='curl -s -L'
+URL_BASE='https://github.com/mmgen/MMGenLive/releases/download'
+PROJ_NAME='MMLiveUpgrade'
+
+while getopts hT OPT
+do
+	case "$OPT" in
+	h)  printf "  %-16s Upgrade an MMGen installation\n" "${PROGNAME^^}:"
+		echo   "  USAGE:           $PROGNAME"
+		echo   "  OPTIONS:   '-h'   Print this help message"
+		echo   "             '-T'   Connect via Tor proxy on localhost"
+		exit ;;
+	T) TOR=1 CURL='curl -s -L -x socks5h://localhost:9050' ;;
+	*)  exit ;;
+	esac
+done
+
+shift $((OPTIND-1))
+
+. ~/scripts/include/functions.sh
+
+DIR="$HOME/var"
+MY_VER=$(cat $DIR/version)
+MY_REV=$(cat $DIR/revision)
+gmsg "Version $MY_VER, revision '$MY_REV'"
+
+URL="$URL_BASE/revisions-v$MY_VER"
+REVS='0abcdefghijklmnopqrstuvwxyz'
+GPG='gpg --quiet --trust-model always'
+
+echo -e "Getting latest revision:\n$URL/revision"
+
+eval "$CURL -o $DIR/revision.cur $URL/revision"
+CUR_REV=$(cat $DIR/revision.cur)
+
+eval "$CURL -o $DIR/revision.cur.sig $URL/revision.sig"
+eval "$GPG --verify $DIR/revision.cur.sig $DIR/revision.cur"
+
+while [ 1 ]; do
+	if [ "$MY_REV" == "$CUR_REV" ]; then
+		echo 'Installation is up to date'; exit
+	else
+		echo "current revision '$MY_REV', target revision '$CUR_REV'"
+	fi
+	NEXT_REV=${REVS#*$MY_REV} NEXT_REV=${NEXT_REV:0:1}
+	SCRIPT="upgrade-$NEXT_REV.sh"
+
+	gmsg "Downloading upgrade script for revision '$NEXT_REV'"
+	eval "$CURL -o $DIR/$SCRIPT $URL/$SCRIPT"
+
+	eval "$CURL -o $DIR/$SCRIPT.sig $URL/$SCRIPT.sig"
+	eval "$GPG --verify $DIR/$SCRIPT.sig $DIR/$SCRIPT"
+
+	[ -s "$DIR/$SCRIPT" ] || { echo "Download of script failed"; exit; }
+	gmsg "Running upgrade script"
+	set +e
+	/bin/bash $DIR/$SCRIPT || { rmsg "Upgrade script for revision '$NEXT_REV' failed"; exit; }
+	set -e
+	echo $NEXT_REV > "$DIR/revision"
+	MY_REV=$(cat $DIR/revision)
+	bmsg "Upgraded to revision '$MY_REV'"
+done
