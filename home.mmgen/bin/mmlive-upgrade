@@ -33,6 +33,7 @@ if [ ! -d "$DIR" ]; then
 	mkdir -p "$DIR"
 	FILES="$(ls $HOME/var/upgrade* $HOME/var/revision* 2>/dev/null)"
 	[ "$FILES" ] && { echo 'Relocating revision and upgrade files'; mv -f $FILES $DIR; }
+	mv $DIR/revision $DIR/revision.my || true
 fi
 
 MY_REV=$(cat $DIR/revision.my)
@@ -60,10 +61,10 @@ fi
 
 echo -e "Getting latest revision:\n$URL/revision"
 
-eval "$CURL -O $URL/revision"
+eval "(cd $DIR; $CURL -O $URL/revision)"
 CUR_REV=$(cat $DIR/revision)
 
-eval "$CURL -O $URL/revision.sig"
+eval "(cd $DIR; $CURL -O $URL/revision.sig)"
 eval "$GPG --verify $DIR/revision.sig $DIR/revision"
 
 while [ 1 ]; do

@@ -25,7 +25,8 @@ export LANG='en_US.UTF-8'; export LANGUAGE='en'
 PROGNAME=`basename $0`
 SCRIPT=$PROGNAME
 
-export VERSION=0.0.7
+export VERSION='0.0.7'
+export REVISION='b'
 declare -A RELEASES=(
 	[wily]="Ubuntu 15.10 'wily'"
 	[xenial]="Ubuntu 16.04 'xenial'"
@@ -94,7 +95,8 @@ declare -A DESCS=(
 	[usb_create_grub_cfg_file]='create GRUB configuration file (grub.cfg)'
 	[usb_create_system_cfg_files]='create system configuration files on USB drive'
 	[usb_gen_locales]='generate configured locales'
-	[usb_install_extras]='install console and gfx extras and copy homedir files'
+	[usb_install_extras]='install console and gfx extras'
+	[usb_install_homedir]='install homedir files'
 	[usb_pre_initramfs]='do pre-update-initramfs configurations on USB drive'
 	[usb_update_initramfs]='generate the init RAM filesystem'
 	[usb_update_mmgen]='update the MMGen installation on the USB stick'
@@ -1148,11 +1150,15 @@ function usb_install_extras() {
 	exec_or_die "tar -C $USB_MNT_DIR -xzf $EXTRAS_GFX_ARCHIVE"
 	exec_or_die "tar -tzf $EXTRAS_GFX_ARCHIVE | grep -v '\/$' > $USB_MNT_DIR/setup/extras-gfx.lst"
 
-	msg 'Copying home directory files'
-	exec_or_die "cp -a home.mmgen/* $USB_MNT_DIR/home/$USER/"
-
 	# when tar recreates missing parent directories, they will have root ownership
 	exec_or_die "find $USB_MNT_DIR/home/$USER -exec chown $USER_UID:$USER_UID {} \\;"
+}
+function usb_install_homedir() {
+	msg "Copying home directory files to installation's Git repository"
+	GIT_DIR="$USB_MNT_DIR/setup/git/MMGenLive"
+	exec_or_die "mkdir -p $GIT_DIR/home.mmgen"
+	exec_or_die "cp -a home.mmgen/* $GIT_DIR/home.mmgen/"
+	depends 'location=usb' mount_root mount_boot_usb && return; usb_install $FUNCNAME
 }
 function usb_create_grub_cfg_file() {
 	depends 'location=usb' umount_all mount_root mount_boot_usb && return
@@ -1354,10 +1360,6 @@ function setup_sh_usb_config_misc() {
 	msg "Adding MMGen signing key to gpg keyring"
 	exec_or_die 'echo "$PUBKEY" | su - mmgen -c "gpg --import"'
 
-	msg -e "Creating version and revision files $YELLOW(version is '$VERSION')$RESET"
-	exec_or_die "su - $USER -c 'mkdir -p var'"
-	exec_or_die "su - $USER -c 'echo $VERSION >var/version; echo 0 >var/revision'"
-
 	exec_or_die 'systemctl disable NetworkManager'
 	exec_or_die 'systemctl disable wpa_supplicant'
 	exec_or_die 'systemctl disable tor'
@@ -1381,6 +1383,18 @@ function setup_sh_usb_pre_initramfs() {
 		gmsg "Setting default plymouth theme to '$A'"
 		exec_or_die "plymouth-set-default-theme $A"
 	}
+}
+function setup_sh_usb_install_homedir() {
+	GIT_DIR="/setup/git/MMGenLive"
+	LINK_DIRS='bin doc scripts'
+	exec_or_die "find $GIT_DIR -exec chown $USER:$USER {} \\;"
+	msg "Linking Git repository dirs to home directory: $LINK_DIRS"
+	exec_or_die "su - $USER -c 'rm -rf $LINK_DIRS'"
+	exec_or_die "su - $USER -c 'for i in $LINK_DIRS; do ln -s $GIT_DIR/home.mmgen/\$i; done'"
+
+	msg -e "Creating version and revision files $YELLOW(version is '$VERSION')$RESET"
+	exec_or_die "su - $USER -c 'mkdir -p var/$VERSION'"
+	exec_or_die "su - $USER -c 'echo $VERSION >var/version; echo $REVISION >var/$VERSION/revision.my'"
 }
 function setup_sh_usb_update_initramfs() {
 	export CRYPTSETUP=y
@@ -1526,7 +1540,7 @@ function install_grub() {
 	setup_sh_live $FUNCNAME
 }
 function install_kernel() {
-	depends 'location=chroot' partition_usb_boot && return
+	depends 'location=chroot' partition_usb_boot mount_boot_chroot && return
 	setup_sh_live $FUNCNAME
 }
 function install_system_utils() {
@@ -1594,6 +1608,7 @@ function build_usb() {
 		usb_copy_system \
 		usb_create_system_cfg_files \
 		usb_install_extras \
+		usb_install_homedir \
 		usb_pre_initramfs \
 		usb_update_initramfs \
 		usb_gen_locales \
