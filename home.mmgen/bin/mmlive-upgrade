@@ -35,6 +35,22 @@ URL="$URL_BASE/revisions-v$MY_VER"
 REVS='0abcdefghijklmnopqrstuvwxyz'
 GPG='gpg --quiet --trust-model always'
 
+GIT_DIR='/setup/git/MMGenLive'
+
+if [ -d "$GIT_DIR" ]; then
+	echo 'Updating MMGenLive git repository'
+	(
+		cd $GIT_DIR
+		git pull --no-edit --force --strategy=recursive --strategy-option=theirs
+		LAST_COMMIT=$(git log --oneline --color=never --no-merges --pretty=%h | head -n1)
+		git verify-commit $LAST_COMMIT 2>/dev/null || {
+			echo 'Unable to verify latest commit. Aborting'
+			exit 1
+		}
+		echo 'Signature on latest commit OK'
+	)
+fi
+
 echo -e "Getting latest revision:\n$URL/revision"
 
 eval "$CURL -o $DIR/revision.cur $URL/revision"
