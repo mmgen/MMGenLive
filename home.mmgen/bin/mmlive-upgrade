@@ -26,9 +26,16 @@ shift $((OPTIND-1))
 
 . ~/scripts/include/functions.sh
 
-DIR="$HOME/var"
-MY_VER=$(cat $DIR/version)
-MY_REV=$(cat $DIR/revision)
+MY_VER=$(cat $HOME/var/version)
+DIR="$HOME/var/$MY_VER"
+
+if [ ! -d "$DIR" ]; then
+	mkdir -p "$DIR"
+	FILES="$(ls $HOME/var/upgrade* $HOME/var/revision* 2>/dev/null)"
+	[ "$FILES" ] && { echo 'Relocating revision and upgrade files'; mv -f $FILES $DIR; }
+fi
+
+MY_REV=$(cat $DIR/revision.my)
 gmsg "Version $MY_VER, revision '$MY_REV'"
 
 URL="$URL_BASE/revisions-v$MY_VER"
@@ -53,11 +60,11 @@ fi
 
 echo -e "Getting latest revision:\n$URL/revision"
 
-eval "$CURL -o $DIR/revision.cur $URL/revision"
-CUR_REV=$(cat $DIR/revision.cur)
+eval "$CURL -O $URL/revision"
+CUR_REV=$(cat $DIR/revision)
 
-eval "$CURL -o $DIR/revision.cur.sig $URL/revision.sig"
-eval "$GPG --verify $DIR/revision.cur.sig $DIR/revision.cur"
+eval "$CURL -O $URL/revision.sig"
+eval "$GPG --verify $DIR/revision.sig $DIR/revision"
 
 while [ 1 ]; do
 	if [ "$MY_REV" == "$CUR_REV" ]; then
@@ -79,7 +86,7 @@ while [ 1 ]; do
 	set +e
 	/bin/bash $DIR/$SCRIPT || { rmsg "Upgrade script for revision '$NEXT_REV' failed"; exit; }
 	set -e
-	echo $NEXT_REV > "$DIR/revision"
-	MY_REV=$(cat $DIR/revision)
+	echo $NEXT_REV > "$DIR/revision.my"
+	MY_REV=$(cat $DIR/revision.my)
 	bmsg "Upgraded to revision '$MY_REV'"
 done
