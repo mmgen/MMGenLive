@@ -1,0 +1,21 @@
+#!/bin/bash
+
+PROGNAME=`basename $0` DO_WHAT=${PROGNAME#mmlive-tor-}
+SERVICE='tor'
+DESC='the Tor onion router'
+
+while getopts h OPT
+do
+	case "$OPT" in
+	h)  printf "  %-16s ${DO_WHAT^} $DESC\n" "${PROGNAME^^}:"
+		echo   "  USAGE:           $PROGNAME [options]"
+		echo   "  OPTIONS:   '-h'  Print this help message"
+		exit ;;
+	*)  exit ;;
+	esac
+done
+
+shift $((OPTIND-1))
+
+ACTION="${DO_WHAT/op/opp}ing"; echo "${ACTION^} $DESC"
+sudo systemctl $DO_WHAT $SERVICE

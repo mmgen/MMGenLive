@@ -612,6 +612,7 @@ declare -A CFG_NAMES=(
 	[lightdm_conf]='/etc/lightdm/lightdm.conf'
 	[lightdm_greeter_conf]='/etc/lightdm/lightdm-gtk-greeter.conf'
 	[torrc]='/etc/tor/torrc'
+	[privoxy_conf]='/etc/privoxy/config'
 )
 [ "$RELEASE" == 'jessie' ] && {
 	CFG_NAMES[supported_locales]='/etc/locale.gen'
@@ -716,6 +717,8 @@ SafeSocks 1
 ControlPort 9051
 CookieAuthentication 1
 CookieAuthFileGroupReadable 1'
+
+	cf_append 'do_hdr' 'privoxy_conf' 'forward-socks5t / 127.0.0.1:9050 .'
 
 	return 0
 }
@@ -1114,7 +1117,7 @@ function live_install_kernel() {
 }
 
 function live_install_system_utils() {
-	apt_get_install_chk 'patch ed ethtool dosfstools parted gdisk wipe lsof fbset man rfkill nano tmux vim sudo openssh-client rsync ppp network-manager-pptp iputils-arping xl2tpd tor tor-geoipdb openssh-server scrot feh openvpn' '--no-install-recommends'
+	apt_get_install_chk 'patch ed ethtool dosfstools parted gdisk wipe lsof fbset man rfkill nano tmux vim sudo openssh-client rsync ppp network-manager-pptp iputils-arping xl2tpd privoxy tor tor-geoipdb openssh-server scrot feh openvpn' '--no-install-recommends'
 }
 
 function live_install_x() {
@@ -1352,7 +1355,7 @@ dRrWK1eeHDwJ7AnLSfwxBGc=
 '
 
 function setup_sh_usb_config_misc() {
-	NEW_GROUPS='wheel,debian-tor'
+	NEW_GROUPS='wheel,adm,debian-tor'
 	msg "Adding user '$USER' to groups $NEW_GROUPS"
 	exec_or_die "groupadd -f -g 14 wheel"
 	exec_or_die "usermod -a -G $NEW_GROUPS $USER"
@@ -1363,6 +1366,7 @@ function setup_sh_usb_config_misc() {
 	exec_or_die 'systemctl disable NetworkManager'
 	exec_or_die 'systemctl disable wpa_supplicant'
 	exec_or_die 'systemctl disable tor'
+	exec_or_die 'systemctl disable privoxy'
 	exec_or_die 'systemctl disable ssh'
 	exec_or_die 'systemctl disable openvpn'
 #	exec_or_die 'systemctl disable apparmor'

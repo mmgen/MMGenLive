@@ -14,6 +14,12 @@ function gmsg() { echo -e ${2:+$1} $GREEN$PROJ_NAME: "${2:-$1}$RESET"; }
 function bmsg() { echo -e ${2:+$1} $BLUE$PROJ_NAME: "${2:-$1}$RESET"; }
 function pause() { ymsg -n 'Paused.  Hit ENTER to continue: '; read junk; }
 
+function dbecho() { return; echo -e "${RED}DEBUG: $@$RESET"; }
+function recho() { echo -e ${2:+$1} "$RED${2:-$1}$RESET"; }
+function yecho() { echo -e ${2:+$1} "$YELLOW${2:-$1}$RESET"; }
+function gecho() { echo -e ${2:+$1} "$GREEN${2:-$1}$RESET"; }
+function becho() { echo -e ${2:+$1} "$BLUE${2:-$1}$RESET"; }
+
 function exec_or_die() {
 	set +x
 	eval "$@" || {

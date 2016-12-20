@@ -2,7 +2,8 @@
 
 PROGNAME=`basename $0` DO_WHAT=${PROGNAME#mmlive-networking-}
 #SERVICE='NetworkManager'
-SERVICE='network-manager'
+SERVICES='network-manager privoxy tor'
+SERVICES_START='network-manager privoxy'
 
 while getopts h OPT
 do
@@ -17,12 +18,14 @@ done
 
 shift $((OPTIND-1))
 
-UP_IFS=`ip link | grep -v LOOPBACK | grep '\<UP\>' | awk '{ print $2 }' | tr -d :`
-for i in $UP_IFS; do
-	echo "Taking down $i"
-	sudo ip link set $i down
-done
+if [ "$DO_WHAT" == 'disable' ]; then
+	UP_IFS=`ip link | grep -v LOOPBACK | grep '\<UP\>' | awk '{ print $2 }' | tr -d :`
+	for i in $UP_IFS; do
+		echo "Taking down $i"
+		sudo ip link set $i down
+	done
+fi
 
-[ $DO_WHAT == 'disable' ] && sudo systemctl stop $SERVICE
-sudo systemctl $DO_WHAT $SERVICE
-[ $DO_WHAT == 'enable' ] && sudo systemctl start $SERVICE
+[ $DO_WHAT == 'disable' ] && { for s in $SERVICES; do sudo systemctl stop $s; done; }
+for s in $SERVICES; do sudo systemctl $DO_WHAT $s; done
+[ $DO_WHAT == 'enable' ] && { for s in $SERVICES_START; do sudo systemctl start $s; done; }
