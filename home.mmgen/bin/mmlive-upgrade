@@ -1,4 +1,5 @@
 #!/bin/bash
+# https://raw.githubusercontent.com/mmgen/MMGenLive/master/home.mmgen/bin/mmlive-upgrade
 
 set -e
 

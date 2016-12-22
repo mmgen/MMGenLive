@@ -26,7 +26,7 @@ PROGNAME=`basename $0`
 SCRIPT=$PROGNAME
 
 export VERSION='0.0.7'
-export REVISION='b'
+export REVISION='c'
 declare -A RELEASES=(
 	[wily]="Ubuntu 15.10 'wily'"
 	[xenial]="Ubuntu 16.04 'xenial'"
@@ -613,6 +613,7 @@ declare -A CFG_NAMES=(
 	[lightdm_greeter_conf]='/etc/lightdm/lightdm-gtk-greeter.conf'
 	[torrc]='/etc/tor/torrc'
 	[privoxy_conf]='/etc/privoxy/config'
+	[plymouth_text]='/usr/share/plymouth/themes/lubuntu-text/lubuntu-text.plymouth'
 )
 [ "$RELEASE" == 'jessie' ] && {
 	CFG_NAMES[supported_locales]='/etc/locale.gen'
@@ -719,6 +720,8 @@ CookieAuthentication 1
 CookieAuthFileGroupReadable 1'
 
 	cf_append 'do_hdr' 'privoxy_conf' 'forward-socks5t / 127.0.0.1:9050 .'
+
+	cf_edit 'do_hdr' 'plymouth_text' '^title=.*' "title=$PROJ_NAME v$VERSION"
 
 	return 0
 }
@@ -881,7 +884,7 @@ function get_usb_dev() {
 	USB_P1=${USB_DEV}1 USB_P2=${USB_DEV}2
 }
 function partition_usb_root() {
-	depends 'location=usb' partition_usb_boot && return
+	depends 'location=chroot' partition_usb_boot && return
 	umount_vfs_chroot; umount_vfs_usb; umount_boot_usb; umount_root
 	partition_usb
 }
@@ -1157,10 +1160,6 @@ function usb_install_extras() {
 	exec_or_die "find $USB_MNT_DIR/home/$USER -exec chown $USER_UID:$USER_UID {} \\;"
 }
 function usb_install_homedir() {
-	msg "Copying home directory files to installation's Git repository"
-	GIT_DIR="$USB_MNT_DIR/setup/git/MMGenLive"
-	exec_or_die "mkdir -p $GIT_DIR/home.mmgen"
-	exec_or_die "cp -a home.mmgen/* $GIT_DIR/home.mmgen/"
 	depends 'location=usb' mount_root mount_boot_usb && return; usb_install $FUNCNAME
 }
 function usb_create_grub_cfg_file() {
@@ -1389,12 +1388,20 @@ function setup_sh_usb_pre_initramfs() {
 	}
 }
 function setup_sh_usb_install_homedir() {
-	GIT_DIR="/setup/git/MMGenLive"
+	GIT_DIR="/setup/git"
+	msg "Cloning $PROJ_NAME git repository to '$GIT_DIR'"
+	exec_or_die "rm -rf $GIT_DIR"
+	exec_or_die "mkdir -p $GIT_DIR"
+	exec_or_die "chown $USER:$USER $GIT_DIR"
+	exec_or_die "su - $USER -c 'cd $GIT_DIR && git clone $PROJ_REPO'"
+	su - $USER -c 'git config --global user.email "mmlive@nowhere.com"'
+	su - $USER -c 'git config --global user.name "MMGenLive User"'
+	su - $USER -c 'git config --global core.pager "less -R"'
+
 	LINK_DIRS='bin doc scripts'
-	exec_or_die "find $GIT_DIR -exec chown $USER:$USER {} \\;"
 	msg "Linking Git repository dirs to home directory: $LINK_DIRS"
 	exec_or_die "su - $USER -c 'rm -rf $LINK_DIRS'"
-	exec_or_die "su - $USER -c 'for i in $LINK_DIRS; do ln -s $GIT_DIR/home.mmgen/\$i; done'"
+	exec_or_die "su - $USER -c 'for i in $LINK_DIRS; do ln -s $GIT_DIR/$PROJ_NAME/home.mmgen/\$i; done'"
 
 	msg -e "Creating version and revision files $YELLOW(version is '$VERSION')$RESET"
 	exec_or_die "su - $USER -c 'mkdir -p var/$VERSION'"
@@ -1673,6 +1680,7 @@ function build() {
 FUNCNEST=30
 
 PROJ_NAME='MMGenLive'
+PROJ_REPO='https://github.com/mmgen/MMGenLive.git'
 HOST='MMGenLive' USER='mmgen' USER_UID=1000 PASSWD='mmgen'
 BOOTFS_LABEL='MMGEN_BOOT' ROOTFS_LABEL='MMGEN_ROOT'
 DM_DEV='mmgen_p2' DM_ROOT_DEV='root_fs' DM_DEV_IMG='img_p2'

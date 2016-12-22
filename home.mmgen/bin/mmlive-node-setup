@@ -142,7 +142,7 @@ function create_twallet() {
 	exec_or_die "rm -rf $TMP_DATA_DIR"
 	exec_or_die "mkdir -p $TMP_DATA_DIR"
 
-	exec_or_die "bitcoind -daemon -maxconnections=0 -listen=0 -keypool=1 -datadir=$TMP_DATA_DIR -wallet=$TW_FILE"
+	exec_or_die "bitcoind -daemon -maxconnections=0 -listen=0 -datadir=$TMP_DATA_DIR -wallet=$TW_FILE"
 
 	echo -n 'Generating tracking wallet.'
 	while true; do
@@ -162,11 +162,10 @@ HOME_BITCOIN_DATA_DIR="$HOME/.bitcoin"
 BACKUP_BITCOIN_DATA_DIR="$HOME/.bitcoin.old"
 function copy_and_link_twallet() {
 
-	if [ ! -f $MMGEN_DATA_DIR/$TW_FILE ]; then # Don't clobber existing tw
-		echo "Copying tracking wallet to '$MMGEN_DATA_DIR'"
-		exec_or_die "mkdir -p $MMGEN_DATA_DIR" 
-		exec_or_die "cp -i $TMP_DATA_DIR/$TW_FILE $MMGEN_DATA_DIR" 
-	fi
+	echo "Copying tracking wallet to '$MMGEN_DATA_DIR'"
+	exec_or_die "mkdir -p $MMGEN_DATA_DIR" 
+	# prompt before overwrite
+	exec_or_die "/bin/cp -i $TMP_DATA_DIR/$TW_FILE $MMGEN_DATA_DIR"
 
 	if [ -d $HOME_BITCOIN_DATA_DIR ]; then
 		echo "Moving old bitcoin data directory"
