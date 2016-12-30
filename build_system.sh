@@ -19,6 +19,16 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+# proxy info:
+# APT_GET - protocol required, 'all_proxy' doesn't work
+#   http_proxy=protocol://host:port apt-get
+# LYNX - protocol required, 'all_proxy' doesn't work
+#   https_proxy=protocol://host:port lynx
+# CURL - no protocol = http://
+#   curl -x [protocol://]host:port
+# GIT - no protocol = http://, 'https_proxy' also works
+#   all_proxy=[protocol://]host:port git
+
 export LANG='en_US.UTF-8'; export LANGUAGE='en'
 
 [ $EUID = '0' ] || { echo 'This script must be run as root'; exit; }
@@ -112,7 +122,9 @@ for i in ${!DESCS[@]}; do
 done
 TARGET='build'
 
-while getopts haAbBcCdDGiLMor:sSuvxX OPT
+CURL='curl' GIT='git' APT_GET='apt-get' LYNX='lynx'
+
+while getopts haAbBcCdDGiLMoP:r:sSuvxX OPT
 do
 	case "$OPT" in
 	h)  printf "  %-16s Build an MMGenLive system\n" "${PROGNAME^^}:"
@@ -131,6 +143,7 @@ do
 		echo   "           '-L'    Don't backup/restore '/var/lib/apt/lists' dir"
 		echo   "           '-M'    Skip MMGen test"
 		echo   "           '-o'    Build image on loop device instead of USB stick (doesn't work)"
+		echo   "           '-P p'  Connect via proxy 'p' (protocol://host:port)"
 		echo   "           '-r r'  Install Ubuntu/Debian release 'r' (choices: ${!RELEASES[*]})"
 		echo   "           '-s'    Simulate, don't execute, shell commands"
 		echo   "           '-S'    Simulate, don't execute, shell commands (in chroot only)"
@@ -164,6 +177,11 @@ do
 	L)  NO_APT_LISTS_BACKUP=1 ;;
 	M)  SKIP_MMGEN_TEST=1 ;;
 	o)  LOOP_INSTALL=1 ;;
+	P)  PROXY=1
+		CURL="curl -x $OPTARG"
+		GIT="all_proxy=$OPTARG git"
+		APT_GET="https_proxy=$OPTARG http_proxy=$OPTARG apt-get"
+		LYNX="https_proxy=$OPTARG http_proxy=$OPTARG lynx" ;;
 	r)  RELEASE=$OPTARG ;;
 	s)  SIMULATE=1 ;;
 	S)  SIMULATE_IN_CHROOT=1 ;;
@@ -399,19 +417,19 @@ function build_mmgen_sdist() {
 function apt_get_update () {
 	if [ "$TARGET" == "$FUNCNAME" ]; then # called by user, for chroot system
 		mount_vfs_chroot
-		chroot $CHROOT_DIR apt-get update
-		chroot $CHROOT_DIR apt-get upgrade
+		chroot $CHROOT_DIR sh -c "$APT_GET update"
+		chroot $CHROOT_DIR sh -c "$APT_GET upgrade"
 	elif [ "$SCRIPT" == 'build_system.sh' ]; then # called by script, for host system
 		[ "$HOST_APT_UPDATED" ] || {
-			apt-get update
-			apt-get upgrade
+			eval "$APT_GET update"
+			eval "$APT_GET upgrade"
 		}
 		HOST_APT_UPDATED=1
 	else
 		T=`stat -c %Y '/setup/last_apt_update' 2>/dev/null` NOW=`date +%s`
 		[ "$T" -a $((NOW-T)) -lt 3600 ] || {
-			exec_or_die 'apt-get -q update'
-			exec_or_die 'apt-get --yes upgrade'
+			exec_or_die "$APT_GET -q update"
+			exec_or_die "$APT_GET --yes upgrade"
 			exec_or_die 'touch /setup/last_apt_update'
 		}
 	fi
@@ -425,7 +443,7 @@ function apt_get_install_chk() {
 	if [ "$INSTALLED" != $NUM_PKGS -o "$ADD_ARGS" == '--reinstall' ]; then
 		apt_get_update
 		msg "Installing requested packages on $SYSTEM system: $REQ_PKGS"
-		exec_or_die "apt-get -q --yes $ADD_ARGS install $REQ_PKGS"
+		exec_or_die "$APT_GET -q --yes $ADD_ARGS install $REQ_PKGS"
 	else
 		msg "Requested packages already installed on $SYSTEM system: $REQ_PKGS"
 	fi
@@ -469,9 +487,9 @@ function live_remove_packages() {
 		*) die "$RELEASE: unknown release"
 	esac
 # 	exec_or_die "apt-get --yes remove build-essential busybox-static colord colord-data fakeroot g++ gcc grub-common grub-efi-amd64-bin grub-pc grub-pc-bin grub2-common gvfs gvfs-backends gvfs-common gvfs-daemons gvfs-libs $A"
-	exec_or_die "apt-get --yes remove build-essential busybox-static colord colord-data fakeroot g++ grub-common grub-efi-amd64-bin grub-pc grub-pc-bin grub2-common gvfs gvfs-backends gvfs-common gvfs-daemons gvfs-libs $A"
+	exec_or_die "$APT_GET --yes remove build-essential busybox-static colord colord-data fakeroot g++ grub-common grub-efi-amd64-bin grub-pc grub-pc-bin grub2-common gvfs gvfs-backends gvfs-common gvfs-daemons gvfs-libs $A"
 # lvm2
-	exec_or_die 'apt-get --yes autoremove'
+	exec_or_die "$APT_GET --yes autoremove"
 	# deborphan discovered no orphans, so don't need it
 	# other candidates for removal? (ruby needed by vim-gtk)
 }
@@ -492,7 +510,7 @@ function chroot_install_mmgen_dependencies() {
 function chroot_install_vanitygen() {
 	exec_or_die 'cd /setup'
 	rm -rf 'vanitygen'
-	exec_or_die 'git clone https://github.com/samr7/vanitygen.git'
+	exec_or_die "$GIT clone https://github.com/samr7/vanitygen.git"
 	exec_or_die '(cd vanitygen; make)'
 	gmsg "Copying 'keyconv' executable to execution path"
 	exec_or_die 'cp vanitygen/keyconv /usr/local/bin'
@@ -501,7 +519,7 @@ function chroot_install_secp256k1() {
 	apt_get_install_chk 'autoconf libtool'
 	exec_or_die 'cd /setup'
 	rm -rf 'secp256k1'
-	exec_or_die 'git clone https://github.com/bitcoin-core/secp256k1.git'
+	exec_or_die "$GIT clone https://github.com/bitcoin-core/secp256k1.git"
 	exec_or_die '(cd secp256k1; ./autogen.sh; ./configure; make; make install)'
 }
 function chroot_install_mmgen() {
@@ -750,7 +768,7 @@ function install_bitcoind() {
 	depends 'location=chroot' && return
 	gmsg 'Retrieving Bitcoin Core'
 	URL='https://bitcoin.org/bin/'
-	exec_or_die 'TEXT=`lynx --listonly --nonumbers --dump $URL`'
+	exec_or_die "TEXT=$(eval $LYNX --listonly --nonumbers --dump $URL)"
 #	TEXT=`cat /setup/bitcoin.org.bin.txt`
 	UPATH=`echo "$TEXT"| egrep -i  'http.*bitcoin.*core' | sort -V | tail -n1`
 	VER=${UPATH/*-} VER=${VER%/}
@@ -772,7 +790,7 @@ function install_bitcoind() {
 			echo "Latest version is $VER"
 			ARCHIVE="bitcoin-${VER}-${ALT_ARCH}-linux-gnu.tar.gz"
 			CURL_URL="${UPATH%/}/$ARCHIVE"
-			exec_or_die "curl -O $CURL_URL"
+			exec_or_die "$CURL -O $CURL_URL"
 			exec_or_die "sha256sum $ARCHIVE"
 			bmsg 'Please verify sha256 sum above from a trusted source before continuing'
 			pause
@@ -1089,14 +1107,14 @@ function live_install_grub() {
 	gmsg "Installing GRUB on $USB_DEV_DESC"
 	apt_get_install_chk 'grub2-common'
 
-	exec_or_die 'apt-get -q --yes remove grub-pc-bin'
+	exec_or_die "$APT_GET -q --yes remove grub-pc-bin"
 	apt_get_install_chk 'grub-efi-amd64-bin'
 	exec_or_die "mkdir -p $MNT_DIR/EFI"
 
 	gmsg "Installing GRUB (EFI) on boot partition '$MNT_DIR'"
 	exec_or_die "grub-install --skip-fs-probe --boot-directory=$MNT_DIR --efi-directory=$MNT_DIR --removable"
 
-	exec_or_die 'apt-get -q --yes remove grub-efi-amd64-bin'
+	exec_or_die "$APT_GET -q --yes remove grub-efi-amd64-bin"
 	apt_get_install_chk 'grub-pc-bin'
 
 	gmsg "Installing GRUB (BIOS/MBR) on boot partition '$MNT_DIR'"
@@ -1114,8 +1132,8 @@ function live_install_kernel() {
 	exec_or_die "PKG2=`apt-cache depends $PKG | head -n2 | tail -n1 | sed 's/.* //'`"
 	apt_get_update
 	# /boot might have been reformatted/deleted, but apt doesn't know
-	exec_or_die "apt-get --yes purge $PKG $PKG2"
-	exec_or_die "apt-get --yes --reinstall install $PKG"
+	exec_or_die "$APT_GET --yes purge $PKG $PKG2"
+	exec_or_die "$APT_GET --yes --reinstall install $PKG"
 	apt_get_install_chk "cryptsetup"
 }
 
@@ -1393,10 +1411,10 @@ function setup_sh_usb_install_homedir() {
 	exec_or_die "rm -rf $GIT_DIR"
 	exec_or_die "mkdir -p $GIT_DIR"
 	exec_or_die "chown $USER:$USER $GIT_DIR"
-	exec_or_die "su - $USER -c 'cd $GIT_DIR && git clone $PROJ_REPO'"
-	su - $USER -c 'git config --global user.email "mmlive@nowhere.com"'
-	su - $USER -c 'git config --global user.name "MMGenLive User"'
-	su - $USER -c 'git config --global core.pager "less -R"'
+	exec_or_die "su - $USER -c 'cd $GIT_DIR && $GIT clone $PROJ_REPO'"
+	su - $USER -c "$GIT config --global user.email 'mmlive@nowhere.com'"
+	su - $USER -c "$GIT config --global user.name 'MMGenLive User'"
+	su - $USER -c "$GIT config --global core.pager 'less -R'"
 
 	LINK_DIRS='bin doc scripts'
 	msg "Linking Git repository dirs to home directory: $LINK_DIRS"

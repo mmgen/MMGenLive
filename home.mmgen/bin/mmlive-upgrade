@@ -1,23 +1,23 @@
 #!/bin/bash
+# https://github.com/mmgen/MMGenLive/raw/master/home.mmgen/bin/mmlive-upgrade ->
 # https://raw.githubusercontent.com/mmgen/MMGenLive/master/home.mmgen/bin/mmlive-upgrade
 
 set -e
 
 [ "$EUID" == 0 ] && { echo 'This script must be run as user, not as root'; exit 1; }
+[ "$1" == '--reexec' ] && { shift; REEXEC=1; }
 
 PROGNAME=$(basename $0)
 CURL='curl -s -L'
-PRIVOXY='localhost:8118'
+PRIVOXY='http://localhost:8118'
 URL_BASE='https://github.com/mmgen/MMGenLive/releases'
 MMLIVE_REPO='https://github.com/mmgen/MMGenLive.git'
+MMLIVE_REPO_DIR='/setup/git/MMGenLive'
+REPO_UPGRADE_DIR="$MMLIVE_REPO_DIR/upgrade"
+REPO_BIN_DIR="$MMLIVE_REPO_DIR/home.mmgen/bin"
 PROJ_NAME='MMLiveUpgrade'
 ONLINE=1
-OFFLINE_UPGRADE_HELP="
-  To upgrade an offline system, download the upgrade scripts and signatures
-  from $URL_BASE/tag/revisions-v<version>,
-  place them in the directory ~/var/<version> and run this script with the
-  '-o' option.
-"
+CURL='curl' GIT='git' APT_GET='apt-get' LYNX='lynx'
 
 while getopts hgop:sST OPT
 do
@@ -25,29 +25,39 @@ do
 	h)  printf "  %-16s Upgrade an MMGen installation\n" "${PROGNAME^^}:"
 		echo   "  USAGE:           $PROGNAME"
 		echo   "  OPTIONS:   '-h'   Print this help message"
-		echo   "             '-g'   Update git repository and exit. Skip revision update"
-		echo   "             '-o'   Offline upgrade (see below)"
-		echo   "             '-p h' Connect via proxy 'p' (host:port - protocol is http)"
+		echo   "             '-g'   Update git repository only; don't run upgrade scripts"
+		echo   "             '-o'   Don't update git repository; run upgrade scripts only"
+		echo   "             '-p h' Connect via proxy 'p' (protocol://host:port)"
 		echo   "             '-s'   Skip authentication of commits"
 		echo   "             '-S'   Skip verification of PGP signatures"
 		echo   "             '-T'   Connect via Tor (through privoxy)"
-		echo "$OFFLINE_UPGRADE_HELP"
 		exit ;;
-	g) GIT_ONLY=1 ;;
+	g) GIT_UPDATE_ONLY=1 ;;
 	o) ONLINE= ;;
-	p) PROXY=$OPTARG CURL="$CURL -x $OPTARG"; all_proxy="$OPTARG";; # all_proxy is for git
+	p) PROXY=$OPTARG
+	   CURL="$CURL -x $OPTARG"
+	   GIT="all_proxy=$OPTARG git"
+	   APT_GET="https_proxy=$OPTARG http_proxy=$OPTARG apt-get"
+	   LYNX="https_proxy=$OPTARG http_proxy=$OPTARG lynx" ;;
 	s) SKIP_COMMIT_AUTH=1 ;;
 	s) SKIP_PGP_VERIFY=1 ;;
-	T) TOR='localhost:9050' CURL="$CURL -x $PRIVOXY"; all_proxy="$PRIVOXY" ;;
-	*)  exit ;;
+	T) TOR='localhost:9050'
+	   CURL="$CURL -x $PRIVOXY"
+	   GIT="all_proxy=$PRIVOXY git"
+	   APT_GET="https_proxy=$PRIVOXY http_proxy=$PRIVOXY apt-get"
+	   LYNX="https_proxy=$PRIVOXY http_proxy=$PRIVOXY lynx" ;;
+	*) exit ;;
 	esac
 done
 
+ARGV="$@"
 shift $((OPTIND-1))
 
-export ONLINE all_proxy CURL
-[ "$PROXY" ] && echo "Connecting via proxy $PROXY"
-[ "$TOR" ] && echo "Connecting via Tor ($TOR) over privoxy ($PRIVOXY)"
+export ONLINE CURL GIT APT_GET LYNX
+[ "$REEXEC" ] || {
+	[ "$PROXY" ] && echo "Connecting via proxy $PROXY"
+	[ "$TOR" ] && echo "Connecting via Tor ($TOR) over privoxy ($PRIVOXY)"
+}
 
 . ~/scripts/include/functions.sh
 
@@ -61,104 +71,73 @@ function gpg_verify() {
 	echo "OK"
 }
 
-MY_VER=$(cat $HOME/var/version)
-DIR="$HOME/var/$MY_VER"
+function init_vars {
+	MY_VER=$(cat $HOME/var/version)
+	DIR="$HOME/var/$MY_VER"
 
-if [ ! -d "$DIR" ]; then
-	mkdir -p "$DIR"
-	FILES="$(ls $HOME/var/upgrade* $HOME/var/revision* 2>/dev/null)"
-	[ "$FILES" ] && { echo 'Relocating revision and upgrade files'; mv -f $FILES $DIR; }
-	mv $DIR/revision $DIR/revision.my || true
-	mv $DIR/revision.cur $DIR/revision || true
-	mv $DIR/revision.cur.sig $DIR/revision.sig || true
-fi
-
-MY_REV=$(cat $DIR/revision.my)
-gmsg "Version $MY_VER, revision '$MY_REV'"
-
-URL="$URL_BASE/download/revisions-v$MY_VER"
-REVS='0abcdefghijklmnopqrstuvwxyz'
-GPG='gpg --quiet --trust-model always'
-
-GIT_DIR='/setup/git/MMGenLive'
-
-function online_upgrade {
-	if [ -d "$GIT_DIR" ]; then
-		echo 'Updating MMGenLive git repository'
-		(
-			cd $GIT_DIR
-			[ -d '.git' ] || git clone $MMLIVE_REPO .
-			git pull --no-edit --force --strategy=recursive --strategy-option=theirs
-			LAST_COMMIT=$(git log --oneline --color=never --no-merges --pretty=%h | head -n1)
-			[ "$SKIP_COMMIT_AUTH" ] || {
-				git verify-commit $LAST_COMMIT 2>/dev/null || {
-					echo 'Unable to verify latest commit. Aborting'
-					exit 1
-				}
-				echo 'Signature on latest commit OK'
-			}
-		)
+	if [ ! -d "$DIR" ]; then
+		mkdir -p "$DIR"
+		FILES="$(ls $HOME/var/upgrade* $HOME/var/revision* 2>/dev/null)"
+		[ "$FILES" ] && { echo 'Relocating revision and upgrade files'; mv -f $FILES $DIR; }
+		mv $DIR/revision $DIR/revision.my || true
+		mv $DIR/revision.cur $DIR/revision || true
+		mv $DIR/revision.cur.sig $DIR/revision.sig || true
 	fi
-	[ "$GIT_ONLY" ] && exit
 
-	echo -e "Getting latest revision:\n$URL/revision"
+	MY_REV=$(cat $DIR/revision.my)
+	[ "$REEXEC" ] || gmsg "Version $MY_VER, revision '$MY_REV'"
 
-	eval "(cd $DIR; $CURL -O $URL/revision)"
-	CUR_REV=$(cat $DIR/revision)
+	URL="$URL_BASE/download/revisions-v$MY_VER"
+	REVS='0abcdefghijklmnopqrstuvwxyz'
+	GPG='gpg --quiet --trust-model always'
+}
 
-	eval "(cd $DIR; $CURL -O $URL/revision.sig)"
-	gpg_verify $DIR/revision.sig $DIR/revision
-
-	while [ 1 ]; do
-		if [ "$MY_REV" == "$CUR_REV" ]; then
-			echo 'Installation is up to date'; exit
-		else
-			echo "current revision '$MY_REV', target revision '$CUR_REV'"
-		fi
-		NEXT_REV=${REVS#*$MY_REV} NEXT_REV=${NEXT_REV:0:1}
-		SCRIPT="upgrade-$NEXT_REV.sh"
-
-		gmsg "Downloading upgrade script for revision '$NEXT_REV'"
-		eval "$CURL -o $DIR/$SCRIPT $URL/$SCRIPT"
-
-		eval "$CURL -o $DIR/$SCRIPT.sig $URL/$SCRIPT.sig"
-		gpg_verify $DIR/$SCRIPT.sig $DIR/$SCRIPT
-
-		[ -s "$DIR/$SCRIPT" ] || { echo "Download of script failed"; exit; }
-		gmsg "Running upgrade script"
-		set +e
-		/bin/bash $DIR/$SCRIPT || { rmsg "Upgrade script for revision '$NEXT_REV' failed"; exit; }
-		set -e
-		echo $NEXT_REV > "$DIR/revision.my"
-		MY_REV=$(cat $DIR/revision.my)
-		bmsg "Upgraded to revision '$MY_REV'"
-	done
+function git_update {
+	echo 'Updating MMGenLive git repository'
+	cd $MMLIVE_REPO_DIR
+	[ -d '.git' ] || eval "$GIT clone $MMLIVE_REPO ."
+	cur_branch=$(git branch --color=never | grep '*' | awk '{ print $2 }')
+	git checkout master
+	eval "$GIT pull --no-edit --force --strategy=recursive --strategy-option=theirs"
+	LAST_COMMIT=$(git log --oneline --color=never --no-merges --pretty=%h | head -n1)
+	[ "$SKIP_COMMIT_AUTH" ] || {
+		git verify-commit $LAST_COMMIT 2>/dev/null || {
+			echo 'Unable to verify latest commit. Aborting'
+			exit 1
+		}
+		echo 'Signature on latest commit OK'
+	}
+	git checkout $cur_branch
 }
 
 function offline_upgrade {
-#	MY_REV=a # DEBUG
-	scripts=$(for s in $DIR/upgrade-?.sh; do s=${s/*upgrade-} s=${s/.sh}; echo -n $s; done)
-	echo -n 'Found upgrade scripts for revisions:'; echo $scripts | sed -r "s/(.)/ '\1'/g"
-	ahead=${REVS#*$MY_REV}
-	to_run=${ahead:0:1}${scripts#*${ahead:0:1}}
-	if [ "${ahead:0:${#to_run}}" == "$to_run" ]; then
-		echo "Upgrading revision '$MY_REV' to revision '${to_run: -1}'"
-	else
-		echo "No upgrade path found to upgrade revision '$MY_REV'"; exit
+	cd $REPO_UPGRADE_DIR
+	ver=$(cat version)
+	if [ "$ver" != "$MY_VER" ]; then
+		yecho "Your version of MMGenLive ($MY_VER) is outdated!"
+		yecho "Please download the latest version ($ver) from the MMGenLive project page"
 	fi
-	while [ "$to_run" ]; do
-		run_now=${to_run:0:1}
-		to_run=${to_run:1}
-		script="$DIR/upgrade-$run_now.sh"
-		gecho "Running '$script'"
-		gpg_verify $script.sig $script
-		set +e
-		bash $script || { echo "Execution of script '$script' failed"; exit; }
-		set -e
-		echo $run_now > "$DIR/revision.my"
-		MY_REV=$(cat $DIR/revision.my)
-		bmsg "Upgraded to revision '$MY_REV'"
+	scripts=$(for s in $MY_VER/upgrade-?.sh; do s=${s#*upgrade-} s=${s%.sh}; echo -n " $s"; done)
+	printf "Target revision: '%s'\n" $(echo $scripts | sed 's/.* //')
+	for s in $scripts; do
+		if [ $s '>' $MY_REV ]; then
+			script="$MY_VER/upgrade-$s.sh"
+			echo "Executing '$script'"
+			set +e
+			bash $script || { recho "Execution of script '$script' failed"; exit; }
+			set -e
+			echo $s > "$DIR/revision.my"
+			MY_REV=$(cat $DIR/revision.my)
+			bmsg "Upgraded to revision '$MY_REV'"
+		fi
 	done
+	echo 'System is up-to-date'
 }
 
-if [ "$ONLINE" ]; then online_upgrade; else offline_upgrade; fi
+init_vars
+[ "$ONLINE" -a -d "$MMLIVE_REPO_DIR" -a ! "$REEXEC" ] && {
+	git_update
+	# script may have changed, so re-exec with original args, skipping git update
+	exec $0 --reexec $ARGV
+}
+[ "$GIT_UPDATE_ONLY" ] || offline_upgrade
