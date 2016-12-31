@@ -19,21 +19,22 @@ PROJ_NAME='MMLiveUpgrade'
 ONLINE=1
 CURL='curl' GIT='git' APT_GET='apt-get' LYNX='lynx'
 
-while getopts hgop:sST OPT
+while getopts hgGp:sST OPT
 do
 	case "$OPT" in
 	h)  printf "  %-16s Upgrade an MMGen installation\n" "${PROGNAME^^}:"
 		echo   "  USAGE:           $PROGNAME"
-		echo   "  OPTIONS:   '-h'   Print this help message"
-		echo   "             '-g'   Update git repository only; don't run upgrade scripts"
-		echo   "             '-o'   Don't update git repository; run upgrade scripts only"
-		echo   "             '-p h' Connect via proxy 'p' (protocol://host:port)"
-		echo   "             '-s'   Skip authentication of commits"
-		echo   "             '-S'   Skip verification of PGP signatures"
-		echo   "             '-T'   Connect via Tor (through privoxy)"
+		echo   "  OPTIONS:"
+		echo   "    '-h'   Print this help message"
+		echo   "    '-g'   Update git repository only; don't run upgrade scripts"
+		echo   "    '-G'   Don't update git repository; run upgrade scripts only"
+		echo   "    '-p h' Connect via proxy 'p' (protocol://host:port)"
+		echo   "    '-s'   Skip authentication of commits"
+		echo   "    '-S'   Skip verification of PGP signatures"
+		echo   "    '-T'   Connect via Tor (through privoxy)"
 		exit ;;
 	g) GIT_UPDATE_ONLY=1 ;;
-	o) ONLINE= ;;
+	G) ONLINE= ;;
 	p) PROXY=$OPTARG
 	   CURL="$CURL -x $OPTARG"
 	   GIT="all_proxy=$OPTARG git"
@@ -97,7 +98,7 @@ function git_update {
 	cd $MMLIVE_REPO_DIR
 	[ -d '.git' ] || eval "$GIT clone $MMLIVE_REPO ."
 	cur_branch=$(git branch --color=never | grep '*' | awk '{ print $2 }')
-	git checkout master
+	git checkout -q master
 	eval "$GIT pull --no-edit --force --strategy=recursive --strategy-option=theirs"
 	LAST_COMMIT=$(git log --oneline --color=never --no-merges --pretty=%h | head -n1)
 	[ "$SKIP_COMMIT_AUTH" ] || {
@@ -107,7 +108,7 @@ function git_update {
 		}
 		echo 'Signature on latest commit OK'
 	}
-	git checkout $cur_branch
+	git checkout -q $cur_branch
 }
 
 function offline_upgrade {

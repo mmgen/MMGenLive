@@ -1372,12 +1372,16 @@ dRrWK1eeHDwJ7AnLSfwxBGc=
 '
 
 function setup_sh_usb_config_misc() {
+	msg 'Putting non-upgradeable packages on hold'
+	HOLD_PKGS=(grub-common grub-gfxpayload-lists grub-pc grub-pc-bin grub2-common)
+	for i in ${HOLD_PKGS[*]}; do echo $i hold | dpkg --set-selections; done
+
 	NEW_GROUPS='wheel,adm,debian-tor'
 	msg "Adding user '$USER' to groups $NEW_GROUPS"
 	exec_or_die "groupadd -f -g 14 wheel"
 	exec_or_die "usermod -a -G $NEW_GROUPS $USER"
 
-	msg "Adding MMGen signing key to gpg keyring"
+	msg 'Adding MMGen signing key to gpg keyring'
 	exec_or_die 'echo "$PUBKEY" | su - mmgen -c "gpg --import"'
 
 	exec_or_die 'systemctl disable NetworkManager'
