@@ -31,9 +31,9 @@
 
 export LANG='en_US.UTF-8'; export LANGUAGE='en'
 
-[ $EUID = '0' ] || { echo 'This script must be run as root'; exit; }
+[ $EUID = '0' -o "$IN_MMLIVE_SYSTEM" ] || { echo 'This script must be run as root'; exit; }
 PROGNAME=`basename $0`
-SCRIPT=$PROGNAME
+if [ $PROGNAME == 'setup.sh' -o "$IN_MMLIVE_SYSTEM" ]; then IN_CHROOT=1; else IN_CHROOT=; fi
 
 export VERSION='0.0.7'
 export REVISION='c'
@@ -115,6 +115,7 @@ declare -A DESCS=(
 	[clean]='delete all built files but keep archives of bootstrap and chroot system; reset progress state to zero'
 	[distclean]='delete all generated and downloaded files; restore repository to its original state'
 )
+#	[usb_create_docs]='create the MMGenLive internal documentation from wiki files'
 
 declare -A TARGETS
 for i in ${!DESCS[@]}; do
@@ -199,7 +200,7 @@ shift $((OPTIND-1))
 
 if [ "$1" -a "$1" == "${1/=}" ]; then TARGET=$1; shift; else TARGET='build'; fi
 
-if [ $SCRIPT == 'build_system.sh' -a ! "${TARGETS[$TARGET]}" ]; then
+if [ ! "$IN_CHROOT" -a ! "${TARGETS[$TARGET]}" ]; then
 	echo $TARGET: bad target
 	exit
 fi
@@ -366,7 +367,7 @@ function umount_boot() {
 }
 
 function clean_exit() {
-	[ "$SCRIPT" == 'setup.sh' -o "$NO_CLEAN" ] && exit 1
+	[ "$IN_CHROOT" -o "$NO_CLEAN" ] && exit 1
 	umount_all
 	HUSH_EXIT=
 	exit
@@ -374,11 +375,11 @@ function clean_exit() {
 
 function die() {
 	MSG="${1:-script died} on line number $BASH_LINENO in function '${FUNCNAME[1]}'"
-	if [ "$SIMULATE" -o "$SIMULATE_IN_CHROOT" -a "$SCRIPT" == 'setup.sh' ]; then
+	if [ "$SIMULATE" -o "$SIMULATE_IN_CHROOT" -a "$IN_CHROOT" ]; then
 		msg -e "Would have died with message: $YELLOW$MSG$RESET"
 	else
 		printf "%b%s: %s%b\n" $RED $PROJ_NAME "$MSG" $RESET
-		[ "$SCRIPT" == 'setup.sh' ] && exit 1
+		[ "$IN_CHROOT" ] && exit 1
 		clean_exit
 	fi
 }
@@ -387,7 +388,7 @@ function exec_or_die_print() {
 	exec_or_die "$@"
 }
 function exec_or_die() {
-	if [ "$SIMULATE" -o "$SIMULATE_IN_CHROOT" -a "$SCRIPT" == 'setup.sh' ]; then
+	if [ "$SIMULATE" -o "$SIMULATE_IN_CHROOT" -a "$IN_CHROOT" ]; then
 		echo -e "\nWould execute: $YELLOW$1$RESET"
 	elif [ "$SIMULATE_SILENT" ]; then
 		true
@@ -396,7 +397,7 @@ function exec_or_die() {
 		eval "$@" || {
 			set +x
 			echo -e "$RED$PROJ_NAME: '$@' failed, line number $BASH_LINENO$RESET"
-			[ "$SCRIPT" == 'setup.sh' ] && exit 1
+			[ "$IN_CHROOT" ] && exit 1
 			clean_exit
 		}
 		set +x
@@ -419,7 +420,7 @@ function apt_get_update () {
 		mount_vfs_chroot
 		chroot $CHROOT_DIR sh -c "$APT_GET update"
 		chroot $CHROOT_DIR sh -c "$APT_GET upgrade"
-	elif [ "$SCRIPT" == 'build_system.sh' ]; then # called by script, for host system
+	elif [ ! "$IN_CHROOT" ]; then # called by script, for host system
 		[ "$HOST_APT_UPDATED" ] || {
 			eval "$APT_GET update"
 			eval "$APT_GET upgrade"
@@ -436,7 +437,7 @@ function apt_get_update () {
 }
 function apt_get_install_chk() {
 	ADD_ARGS=$2
-	if [ "$SCRIPT" == 'setup.sh' ]; then SYSTEM='chroot'; else SYSTEM='host'; fi
+	if [ "$IN_CHROOT" ]; then SYSTEM='chroot'; else SYSTEM='host'; fi
 	REQ_PKGS=$1 NUM_PKGS=`echo $REQ_PKGS | wc -w`
 	[ "$DEBUG" ] && debug_msg "REQ_PKGS: $REQ_PKGS NUM_PKGS: $NUM_PKGS"
 	INSTALLED=`dpkg -l $REQ_PKGS | grep ^ii | wc -l`
@@ -474,7 +475,7 @@ function run_setup_in_chroot() {
 	mount_vfs $DIR
 #	gmsg "Copying setup script to '$DIR'"
 	mkdir -p $DIR/setup
-	exec_or_die "cp $SCRIPT $DIR/setup/setup.sh"
+	exec_or_die "cp $PROGNAME $DIR/setup/setup.sh"
 
 	echo -e "${GREEN}Entering chroot ==>$RESET setup.sh $@"
 	exec_or_die "chroot $DIR /bin/bash ./setup/setup.sh $@"
@@ -580,9 +581,11 @@ function chroot_test_mmgen() {
 function cf_append()    { cf_write "$@"; }
 function cf_uncomment() { cf_write "$@"; }
 function cf_edit()      { cf_write "$@"; }
+function cf_insert()    { cf_write "$@"; }
 function cf_write() {
 	ACTION='write'
-	echo -n "${FUNCNAME[1]}" | egrep -q '^(cf_uncomment|cf_append|cf_edit)$' && ACTION=${FUNCNAME[1]/cf_}
+	PAT='^(cf_uncomment|cf_append|cf_edit|cf_insert)$'
+	echo -n "${FUNCNAME[1]}" | egrep -q "$PAT" && ACTION=${FUNCNAME[1]/cf_}
 
 	CF_HDR=
 	if [ $1 == 'do_hdr' ]; then
@@ -593,6 +596,7 @@ function cf_write() {
 
 #	echo $ACTION $1 $CF_HDR; return
 	ID=$1 TEXT=$2 REPL=$3
+	TMP_CF='/tmp/cf_edit.out'
 	gecho "${CFG_NAMES[$ID]} $YELLOW($ACTION)$RESET"
 	if [ "$DEBUG" ]; then OUT='/dev/tty'; else OUT=${OF[$ID]}; fi
 	if [ "$ACTION" == 'append' ]; then
@@ -602,11 +606,15 @@ function cf_write() {
 		[ "$A" == "$B" ] || exec_or_die 'echo -e "$CF_HDR$TEXT" >> $OUT'
 	elif [ "$ACTION" == 'uncomment' ]; then
 		PAT='^#\s*'${TEXT// /\\s*}'\s*'
-		sed "s/$PAT/$TEXT/" ${OF[$ID]} > /tmp/sed.out
-		exec_or_die 'cat /tmp/sed.out > $OUT'
+		sed "s/$PAT/$TEXT/" ${OF[$ID]} > $TMP_CF
+		exec_or_die "cat $TMP_CF > $OUT"
 	elif [ "$ACTION" == 'edit' ]; then
-		sed "s/$TEXT/${REPL//\//\\/}/" ${OF[$ID]} > /tmp/sed.out
-		exec_or_die 'cat /tmp/sed.out > $OUT'
+		sed "s/$TEXT/${REPL//\//\\/}/" ${OF[$ID]} > $TMP_CF
+		exec_or_die "cat $TMP_CF > $OUT"
+	elif [ "$ACTION" == 'insert' ]; then # insert REPL before first occurrence of TEXT
+		LNUM=$(grep -n -m1 "$TEXT" ${OF[$ID]} | sed 's/:.*//')
+		(head -n$((LNUM-1)) ${OF[$ID]}; echo "$REPL"; tail -n+$LNUM ${OF[$ID]}) > $TMP_CF
+		exec_or_die "cat $TMP_CF > $OUT"
 	else
 		[ "$OUT" != '/dev/tty' ] && exec_or_die "mkdir -p `dirname $OUT`"
 		exec_or_die 'echo -e "$CF_HDR$TEXT" > $OUT'
@@ -652,6 +660,10 @@ function usb_create_system_cfg_files() {
 
 	BOOT_UUID=`lsblk -no UUID $USB_P1`
 	[ "$BOOT_UUID" ] || die 'Missing boot filesystem UUID'
+
+	cf_append 'do_hdr' 'etc_sudoers' "$USER ALL = NOPASSWD: ALL"
+	cf_insert 'do_hdr' 'etc_sudoers' '^Defaults' \
+	'Defaults	env_keep="http_proxy HTTP_PROXY https_proxy HTTPS_PROXY all_proxy ALL_PROXY"'
 
 	cf_write 'do_hdr' 'etc_resolvconf' '# nameserver 127.0.0.1'
 
@@ -700,8 +712,6 @@ GRUB_ENABLE_CRYPTODISK="y"'
 # rfkill block bluetooth
 # /etc/init.d/xl2tpd stop
 # exit 0 # MMGen'
-
-	cf_append 'do_hdr' 'etc_sudoers' "$USER ALL = NOPASSWD: ALL"
 
 	cf_uncomment 'do_hdr' 'pam_su' 'auth sufficient pam_wheel.so trust'
 
@@ -1155,7 +1165,6 @@ function usb_install_extras() {
 	[ "$DO_INSTALL_EXTRAS_TTY" ] || return 73
 	check_extras_tty_present
 	exec_or_die "tar -C $USB_MNT_DIR -xzf $EXTRAS_TTY_ARCHIVE"
-	exec_or_die "tar -tzf $EXTRAS_TTY_ARCHIVE | grep -v '\/$' > $USB_MNT_DIR/setup/extras-tty.lst"
 
 	depends 'location=usb' mount_root mount_boot_usb && return
 	[ "$DO_INSTALL_EXTRAS_GFX" ] || return 73
@@ -1172,13 +1181,16 @@ function usb_install_extras() {
 	BG_DIR="$USB_MNT_DIR/usr/share/backgrounds/xfce"
 	exec_or_die "rm -f $BG_DIR/*"
 	exec_or_die "tar -C $USB_MNT_DIR -xzf $EXTRAS_GFX_ARCHIVE"
-	exec_or_die "tar -tzf $EXTRAS_GFX_ARCHIVE | grep -v '\/$' > $USB_MNT_DIR/setup/extras-gfx.lst"
 
 	# when tar recreates missing parent directories, they will have root ownership
 	exec_or_die "find $USB_MNT_DIR/home/$USER -exec chown $USER_UID:$USER_UID {} \\;"
 }
 function usb_install_homedir() {
 	depends 'location=usb' mount_root mount_boot_usb && return; usb_install $FUNCNAME
+}
+function usb_delete_setup_script() {
+	depends virtual mount_root && return
+	exec_or_die "rm $USB_MNT_DIR/setup/setup.sh"
 }
 function usb_create_grub_cfg_file() {
 	depends 'location=usb' umount_all mount_root mount_boot_usb && return
@@ -1273,6 +1285,9 @@ function usb_gen_locales() {
 function usb_config_misc() {
 	depends 'location=usb' mount_root && return; usb_install $FUNCNAME
 }
+function usb_create_docs() {
+	depends 'location=usb' mount_root && return; usb_install $FUNCNAME
+}
 function usb_update_mmgen() {
 	build_mmgen_sdist
 	mount_root
@@ -1315,6 +1330,25 @@ function setup_sh_usb_update_mmgen() {
 	exec_or_die_print "(cd $DEST; su $USER -c 'tar xf $MMGEN_ARCHIVE_NAME')"
 	exec_or_die_print "rm $DEST/$MMGEN_ARCHIVE_NAME"
 	exec_or_die_print "(cd $DEST/${MMGEN_ARCHIVE_NAME/.tar.gz}; python ./setup.py --quiet install)"
+}
+
+function setup_sh_usb_create_docs() {
+	which kramdown elinks >/dev/null || { echo 'Need kramdown and elinks for doc generation'; return; }
+	FILES='mmgen-wiki Getting-Started-with-MMGen ./doc
+	mmlive-wiki README.MMGenLive ./doc
+	mmlive-wiki README.Unix      ./doc
+	mmlive-wiki README.fullnode  .
+	mmlive-wiki README           .'
+	if [ "$IN_MMLIVE_SYSTEM" ]; then
+		SRC='../' DEST='/home/mmgen'
+		rm -rf $DEST/doc
+		mkdir -p $DEST/doc
+	else
+		SRC= DEST='./home.mmgen'
+	fi
+	echo "$FILES" | while read a b c; do
+		(sed -r "s/\`([^\`]*)<([^\`]*)>([^\`]*)\`/'\1\&lt;\2>\3'/g" $SRC$a/$b.md | sed "s/\`/'/g" | kramdown | elinks -no-numbering -dump) > $DEST/$c/$b
+	done
 }
 
 PUBKEY='-----BEGIN PGP PUBLIC KEY BLOCK-----
@@ -1646,7 +1680,8 @@ function build_usb() {
 		usb_update_initramfs \
 		usb_gen_locales \
 		usb_config_misc \
-		usb_create_grub_cfg_file
+		usb_create_grub_cfg_file \
+		usb_delete_setup_script # do this last
 }
 
 function build_base() {
@@ -1733,7 +1768,7 @@ IMG_FILE=$RELEASE$ARCH_BITS'.img'
 declare -A USB_DEV_DESCS=([usb]='USB drive' [loop]='loop device')
 [ "$USB_DEV_TYPE" ] && USB_DEV_DESC=${USB_DEV_DESCS[$USB_DEV_TYPE]}
 
-if [ $SCRIPT == 'build_system.sh' ]; then
+if [ ! "$IN_CHROOT" ]; then
 	cd `dirname $0`
 	mkdir -p $CHROOT_DIR/setup $USB_MNT_DIR $IMG_ROOT_MNT_DIR
 	[ -e '../mmgen/setup.py' ] || {
@@ -1746,7 +1781,7 @@ fi
 
 [ "$INFORM" ] && gmsg "`inf2tense 'gerund' ${DESCS[$TARGET]}`"
 eval "$TARGET"; RET=$?
-[ $SCRIPT == 'setup.sh' ] && exit 0
+[ "$IN_CHROOT" ] && exit 0
 
 case "$RET" in
 	73) HUSH_EXIT=1 ;;

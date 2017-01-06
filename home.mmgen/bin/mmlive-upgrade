@@ -2,6 +2,8 @@
 # https://github.com/mmgen/MMGenLive/raw/master/home.mmgen/bin/mmlive-upgrade ->
 # https://raw.githubusercontent.com/mmgen/MMGenLive/master/home.mmgen/bin/mmlive-upgrade
 
+# R8 = remove in version 0.0.8
+
 set -e
 
 [ "$EUID" == 0 ] && { echo 'This script must be run as user, not as root'; exit 1; }
@@ -10,14 +12,15 @@ set -e
 PROGNAME=$(basename $0)
 CURL='curl -s -L'
 PRIVOXY='http://localhost:8118'
-URL_BASE='https://github.com/mmgen/MMGenLive/releases'
-MMLIVE_REPO='https://github.com/mmgen/MMGenLive.git'
-MMLIVE_REPO_DIR='/setup/git/MMGenLive'
-REPO_UPGRADE_DIR="$MMLIVE_REPO_DIR/upgrade"
-REPO_BIN_DIR="$MMLIVE_REPO_DIR/home.mmgen/bin"
 PROJ_NAME='MMLiveUpgrade'
 ONLINE=1
-CURL='curl' GIT='git' APT_GET='apt-get' LYNX='lynx'
+CURL='curl' GIT='git' APT_GET='sudo apt-get' LYNX='lynx'
+declare -A REPOS=(
+	[sys]='/setup/git/MMGenLive           https://github.com/mmgen/MMGenLive.git'
+	[mmgen_wiki]='/setup/git/mmgen-wiki   https://github.com/mmgen/mmgen.wiki.git'
+	[mmlive_wiki]='/setup/git/mmlive-wiki https://github.com/mmgen/MMGenLive.wiki.git'
+	[tools]='/setup/git/node-tools        https://github.com/mmgen/mmgen-node-tools.git'
+)
 
 while getopts hgGp:sST OPT
 do
@@ -38,14 +41,14 @@ do
 	p) PROXY=$OPTARG
 	   CURL="$CURL -x $OPTARG"
 	   GIT="all_proxy=$OPTARG git"
-	   APT_GET="https_proxy=$OPTARG http_proxy=$OPTARG apt-get"
+	   APT_GET="https_proxy=$OPTARG http_proxy=$OPTARG sudo apt-get"
 	   LYNX="https_proxy=$OPTARG http_proxy=$OPTARG lynx" ;;
 	s) SKIP_COMMIT_AUTH=1 ;;
 	s) SKIP_PGP_VERIFY=1 ;;
 	T) TOR='localhost:9050'
 	   CURL="$CURL -x $PRIVOXY"
 	   GIT="all_proxy=$PRIVOXY git"
-	   APT_GET="https_proxy=$PRIVOXY http_proxy=$PRIVOXY apt-get"
+	   APT_GET="https_proxy=$PRIVOXY http_proxy=$PRIVOXY sudo apt-get"
 	   LYNX="https_proxy=$PRIVOXY http_proxy=$PRIVOXY lynx" ;;
 	*) exit ;;
 	esac
@@ -76,6 +79,7 @@ function init_vars {
 	MY_VER=$(cat $HOME/var/version)
 	DIR="$HOME/var/$MY_VER"
 
+	# R8
 	if [ ! -d "$DIR" ]; then
 		mkdir -p "$DIR"
 		FILES="$(ls $HOME/var/upgrade* $HOME/var/revision* 2>/dev/null)"
@@ -88,31 +92,45 @@ function init_vars {
 	MY_REV=$(cat $DIR/revision.my)
 	[ "$REEXEC" ] || gmsg "Version $MY_VER, revision '$MY_REV'"
 
-	URL="$URL_BASE/download/revisions-v$MY_VER"
-	REVS='0abcdefghijklmnopqrstuvwxyz'
 	GPG='gpg --quiet --trust-model always'
 }
 
 function git_update {
-	echo 'Updating MMGenLive git repository'
-	cd $MMLIVE_REPO_DIR
-	[ -d '.git' ] || eval "$GIT clone $MMLIVE_REPO ."
-	cur_branch=$(git branch --color=never | grep '*' | awk '{ print $2 }')
-	git checkout -q master
-	eval "$GIT pull --no-edit --force --strategy=recursive --strategy-option=theirs"
-	LAST_COMMIT=$(git log --oneline --color=never --no-merges --pretty=%h | head -n1)
-	[ "$SKIP_COMMIT_AUTH" ] || {
-		git verify-commit $LAST_COMMIT 2>/dev/null || {
-			echo 'Unable to verify latest commit. Aborting'
-			exit 1
+	echo 'Updating git repositories'
+	for repo in 'sys' 'mmgen_wiki' 'mmlive_wiki' 'tools'; do
+		repo_dir=${REPOS[$repo]% *} repo_url=${REPOS[$repo]##* }
+		[ -d $repo_dir ] || mkdir -p $repo_dir || { echo "Could not create '$repo_dir'"; exit; } # R8
+		cd $repo_dir
+		gecho "Checking $repo_url"
+		[ -d '.git' ] || eval "$GIT clone $repo_url ."
+		cur_branch=$(git branch --color=never | grep '*' | awk '{ print $2 }')
+		git checkout -q master
+		OLD_LAST_COMMIT=$(git log --oneline --color=never --no-merges --pretty=%h | head -n1)
+		eval "$GIT pull --no-edit --force --strategy=recursive --strategy-option=theirs"
+		LAST_COMMIT=$(git log --oneline --color=never --no-merges --pretty=%h | head -n1)
+		[ "$OLD_LAST_COMMIT" == "$LAST_COMMIT" ] || {
+#		true && { # DEBUG
+			[ "$SKIP_COMMIT_AUTH" ] || {
+				git verify-commit $LAST_COMMIT 2>/dev/null || {
+					echo "Unable to verify latest commit for repo '$repo'. Aborting"
+					exit 1
+				}
+				echo 'Signature on latest commit OK'
+			}
+			if [ "${repo: -4}" == 'wiki' ]; then
+				(
+					echo "Generating documentation from '$repo'"
+					cd ${REPOS['sys']% *}
+					IN_MMLIVE_SYSTEM=1 ./build_system.sh setup_sh_usb_create_docs
+				)
+			fi
 		}
-		echo 'Signature on latest commit OK'
-	}
-	git checkout -q $cur_branch
+		git checkout -q $cur_branch
+	done
 }
 
 function offline_upgrade {
-	cd $REPO_UPGRADE_DIR
+	cd "${REPOS['sys']%% *}/upgrade"
 	ver=$(cat version)
 	if [ "$ver" != "$MY_VER" ]; then
 		yecho "Your version of MMGenLive ($MY_VER) is outdated!"
@@ -136,7 +154,7 @@ function offline_upgrade {
 }
 
 init_vars
-[ "$ONLINE" -a -d "$MMLIVE_REPO_DIR" -a ! "$REEXEC" ] && {
+[ "$ONLINE" -a ! "$REEXEC" ] && {
 	git_update
 	# script may have changed, so re-exec with original args, skipping git update
 	exec $0 --reexec $ARGV

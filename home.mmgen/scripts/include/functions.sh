@@ -30,7 +30,8 @@ function exec_or_die() {
 
 function cf_write() {
 	ACTION='write'
-	echo -n "${FUNCNAME[1]}" | egrep -q '^(cf_uncomment|cf_append|cf_edit)$' && ACTION=${FUNCNAME[1]#cf_}
+	PAT='^(cf_uncomment|cf_append|cf_edit|cf_insert)$'
+	echo -n "${FUNCNAME[1]}" | egrep -q "$PAT" && ACTION=${FUNCNAME[1]/cf_}
 
 	IN=$1 TEXT=$2 REPL=$3 SED_OUT='/tmp/sed.out'
 #	echo -e  "$GREEN${ACTION%e}ing $IN $RESET"
@@ -52,6 +53,10 @@ function cf_write() {
             su -c "cat $SED_OUT > $OUT"
             return 0
         fi
+	elif [ "$ACTION" == 'insert' ]; then # insert REPL before first occurrence of TEXT
+		LNUM=$(grep -n -m1 "$TEXT" $IN | sed 's/:.*//')
+		(head -n$((LNUM-1)) $IN; echo "$REPL"; tail -n+$LNUM $IN) > $SED_OUT
+		exec_or_die "cat $SED_OUT > $OUT"
 	else
 		echo -e "$TEXT" > $OUT
 	fi
@@ -59,3 +64,4 @@ function cf_write() {
 function cf_append()    { cf_write "$@"; }
 function cf_uncomment() { cf_write "$@"; }
 function cf_edit()      { cf_write "$@"; }
+function cf_insert()    { cf_write "$@"; }
