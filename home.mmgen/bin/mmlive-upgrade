@@ -22,13 +22,14 @@ declare -A REPOS=(
 	[tools]='/setup/git/node-tools        https://github.com/mmgen/mmgen-node-tools.git'
 )
 
-while getopts hgGp:sST OPT
+while getopts hdgGp:sST OPT
 do
 	case "$OPT" in
 	h)  printf "  %-16s Upgrade an MMGen installation\n" "${PROGNAME^^}:"
 		echo   "  USAGE:           $PROGNAME"
 		echo   "  OPTIONS:"
 		echo   "    '-h'   Print this help message"
+		echo   "    '-d'   Generate internal documentation from wikis and exit"
 		echo   "    '-g'   Update git repository only; don't run upgrade scripts"
 		echo   "    '-G'   Don't update git repository; run upgrade scripts only"
 		echo   "    '-p h' Connect via proxy 'p' (protocol://host:port)"
@@ -36,6 +37,7 @@ do
 		echo   "    '-S'   Skip verification of PGP signatures"
 		echo   "    '-T'   Connect via Tor (through privoxy)"
 		exit ;;
+	d) GEN_DOCS=1 ;;
 	g) GIT_UPDATE_ONLY=1 ;;
 	G) ONLINE= ;;
 	p) PROXY=$OPTARG
@@ -95,6 +97,14 @@ function init_vars {
 	GPG='gpg --quiet --trust-model always'
 }
 
+function gen_docs {
+	(
+		echo "Generating documentation from $1"
+		cd ${REPOS['sys']% *}
+		IN_MMLIVE_SYSTEM=1 ./build_system.sh setup_sh_usb_create_docs
+	)
+}
+
 function git_update {
 	echo 'Updating git repositories'
 	for repo in 'sys' 'mmgen_wiki' 'mmlive_wiki' 'tools'; do
@@ -117,13 +127,7 @@ function git_update {
 				}
 				echo 'Signature on latest commit OK'
 			}
-			if [ "${repo: -4}" == 'wiki' ]; then
-				(
-					echo "Generating documentation from '$repo'"
-					cd ${REPOS['sys']% *}
-					IN_MMLIVE_SYSTEM=1 ./build_system.sh setup_sh_usb_create_docs
-				)
-			fi
+			[ "${repo: -4}" == 'wiki' ] && gen_docs $repo
 		}
 		git checkout -q $cur_branch
 	done
@@ -154,6 +158,10 @@ function offline_upgrade {
 }
 
 init_vars
+
+[ "$GEN_DOCS" -o ! -f ~/README ] && gen_docs 'Wikis'
+[ "$GEN_DOCS" ] && exit
+
 [ "$ONLINE" -a ! "$REEXEC" ] && {
 	git_update
 	# script may have changed, so re-exec with original args, skipping git update
