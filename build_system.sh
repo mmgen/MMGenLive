@@ -109,13 +109,13 @@ declare -A DESCS=(
 	[usb_install_homedir]='install homedir files'
 	[usb_pre_initramfs]='do pre-update-initramfs configurations on USB drive'
 	[usb_update_initramfs]='generate the init RAM filesystem'
+	[usb_create_docs]='create the MMGenLive internal documentation from wiki files'
 	[usb_update_mmgen]='update the MMGen installation on the USB stick'
 
 	[depclean]='keep all built and downloaded files; reset progress state to zero'
 	[clean]='delete all built files but keep archives of bootstrap and chroot system; reset progress state to zero'
 	[distclean]='delete all generated and downloaded files; restore repository to its original state'
 )
-#	[usb_create_docs]='create the MMGenLive internal documentation from wiki files'
 
 declare -A TARGETS
 for i in ${!DESCS[@]}; do
@@ -503,7 +503,7 @@ function chroot_install_mmgen_dependencies() {
 	apt_get_install_chk 'locales'
 	do_gen_locales
 
-	apt_get_install_chk 'gcc libgmp-dev make python-pip python-dev python-pexpect python-ecdsa python-scrypt libssl-dev lynx curl git libpcre3-dev python-setuptools python-wheel' '--no-install-recommends'
+	apt_get_install_chk 'gcc libgmp-dev make python-pip python-dev python-pexpect python-ecdsa python-scrypt libssl-dev elinks ruby-kramdown lynx curl git libpcre3-dev python-setuptools python-wheel' '--no-install-recommends'
 
 	gmsg 'Installing the Python Cryptography Toolkit'
 	exec_or_die 'pip install pycrypto'
@@ -1333,21 +1333,21 @@ function setup_sh_usb_update_mmgen() {
 }
 
 function setup_sh_usb_create_docs() {
-	which kramdown elinks >/dev/null || { echo 'Need kramdown and elinks for doc generation'; return; }
+	which kramdown elinks >/dev/null || {
+		echo 'Need kramdown and elinks for doc generation'
+		[ "$IN_MMLIVE_SYSTEM" ] && return
+		die 'Exiting'
+	}
 	FILES='mmgen-wiki Getting-Started-with-MMGen ./doc
 	mmlive-wiki README.MMGenLive ./doc
 	mmlive-wiki README.Unix      ./doc
 	mmlive-wiki README.fullnode  .
 	mmlive-wiki README           .'
-	if [ "$IN_MMLIVE_SYSTEM" ]; then
-		SRC='../' DEST='/home/mmgen'
-		rm -rf $DEST/doc
-		mkdir -p $DEST/doc
-	else
-		SRC= DEST='./home.mmgen'
-	fi
+	SRC='/setup/git' DEST='/home/mmgen'
+	rm -rf $DEST/doc
+	mkdir -p $DEST/doc
 	echo "$FILES" | while read a b c; do
-		(sed -r "s/\`([^\`]*)<([^\`]*)>([^\`]*)\`/'\1\&lt;\2>\3'/g" $SRC$a/$b.md | sed "s/\`/'/g" | kramdown | elinks -no-numbering -dump) > $DEST/$c/$b
+		(sed -r "s/\`([^\`]*)<([^\`]*)>([^\`]*)\`/'\1\&lt;\2>\3'/g" $SRC/$a/$b.md | sed "s/\`/'/g" | kramdown | elinks -no-numbering -dump) > $DEST/$c/$b
 	done
 }
 
@@ -1449,12 +1449,16 @@ function setup_sh_usb_install_homedir() {
 	exec_or_die "rm -rf $GIT_DIR"
 	exec_or_die "mkdir -p $GIT_DIR"
 	exec_or_die "chown $USER:$USER $GIT_DIR"
-	exec_or_die "su - $USER -c 'cd $GIT_DIR && $GIT clone $PROJ_REPO'"
+    repos='MMGenLive MMGenLive.wiki mmgen.wiki mmgen-node-tools'
+    url_base='https://github.com/mmgen'
+	for repo in $repos; do
+		exec_or_die "su - $USER -c 'cd $GIT_DIR && $GIT clone $url_base/$repo.git'"
+	done
 	su - $USER -c "$GIT config --global user.email 'mmlive@nowhere.com'"
 	su - $USER -c "$GIT config --global user.name 'MMGenLive User'"
 	su - $USER -c "$GIT config --global core.pager 'less -R'"
 
-	LINK_DIRS='bin doc scripts'
+	LINK_DIRS='bin scripts'
 	msg "Linking Git repository dirs to home directory: $LINK_DIRS"
 	exec_or_die "su - $USER -c 'rm -rf $LINK_DIRS'"
 	exec_or_die "su - $USER -c 'for i in $LINK_DIRS; do ln -s $GIT_DIR/$PROJ_NAME/home.mmgen/\$i; done'"
@@ -1680,6 +1684,7 @@ function build_usb() {
 		usb_update_initramfs \
 		usb_gen_locales \
 		usb_config_misc \
+		usb_create_docs \
 		usb_create_grub_cfg_file \
 		usb_delete_setup_script # do this last
 }

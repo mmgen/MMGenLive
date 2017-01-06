@@ -14,6 +14,9 @@ MMGenLive gives you, out of the box:
 MMGenLive can be used both as an offline signing wallet and as an online
 tracking/transacting wallet with a full or pruned blockchain.
 
+**MMGenLive also provides an easy way to set up and run a full node, whether you
+use the MMGen wallet or not**
+
 ### There are two ways to install and run MMGenLive:
 
 * download a prebuilt bootable image (the preferred method); or
