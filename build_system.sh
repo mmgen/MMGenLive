@@ -31,9 +31,8 @@
 
 export LANG='en_US.UTF-8'; export LANGUAGE='en'
 
-[ $EUID = '0' -o "$IN_MMLIVE_SYSTEM" ] || { echo 'This script must be run as root'; exit; }
-PROGNAME=`basename $0`
-if [ $PROGNAME == 'setup.sh' -o "$IN_MMLIVE_SYSTEM" ]; then IN_CHROOT=1; else IN_CHROOT=; fi
+[ $EUID = '0' ] || { echo 'This script must be run as root'; exit; }
+PROGNAME=$(basename $0)
 
 export VERSION='0.0.7'
 export REVISION='c'
@@ -100,6 +99,7 @@ declare -A DESCS=(
 	[remove_packages]='delete unneeded packages from live system'
 
 	[usb_config_misc]='configure services on USB system'
+	[create_changelog]='create ChangeLog'
 	[usb_copy_system]='copy chroot system to USB drive'
 	[usb_copy_userdir]='copy chroot userdir to USB drive'
 	[usb_create_grub_cfg_file]='create GRUB configuration file (grub.cfg)'
@@ -200,12 +200,15 @@ shift $((OPTIND-1))
 
 if [ "$1" -a "$1" == "${1/=}" ]; then TARGET=$1; shift; else TARGET='build'; fi
 
+eval "$@" || exit # treat all args after target as env vars
+
+IN_CHROOT=
+[ $PROGNAME == 'setup.sh' -o "$IN_MMLIVE_SYSTEM" ] && IN_CHROOT=1
+
 if [ ! "$IN_CHROOT" -a ! "${TARGETS[$TARGET]}" ]; then
 	echo $TARGET: bad target
 	exit
 fi
-
-eval "$@" || exit
 
 if which infocmp >/dev/null && infocmp $TERM 2>/dev/null | grep -q 'colors#256'; then
 	RED="\e[38;5;210m" YELLOW="\e[38;5;228m" GREEN="\e[38;5;157m"
@@ -252,7 +255,7 @@ function umount_vfs() {
 	[ "$TARGET" == ${FUNCNAME[1]} ] && NO_CLEAN=1 # called by user
 	A='thermald dbus-daemon xl2tpd tor gmain gdbus NetworkManager'
 	if lsof -v 2>/dev/null; then
-		PIDS=`lsof -c ${A// / -c } +c0 | grep $DIR | awk '{ print $2 }' | uniq`
+		PIDS=$(lsof -c ${A// / -c } +c0 | grep $DIR | awk '{ print $2 }' | uniq)
 		[ "$PIDS" ] && { for i in $PIDS; do exec_or_die "kill $i"; done; sleep 1; }
 	fi
 
@@ -268,7 +271,7 @@ function umount_vfs() {
 	return 0
 }
 function mount_img_boot() {
-	LOOP_DEV=`losetup -f`
+	LOOP_DEV=$(losetup -f)
 	if [ -d "$IMG_ROOT_MNT_DIR/boot" ]; then
 		MNT_DIR="$IMG_ROOT_MNT_DIR/boot"
 	else
@@ -289,7 +292,7 @@ function umount_img_boot() {
 	exec_or_die "losetup -D"
 }
 function mount_img_root() {
-	LOOP_DEV=`losetup -f`
+	LOOP_DEV=$(losetup -f)
 	exec_or_die "losetup -P $LOOP_DEV $IMG_FILE"
 	close_luks_partition $DM_DEV_IMG
 	open_luks_partition $LOOP_DEV'p2' $DM_DEV_IMG
@@ -328,7 +331,7 @@ function umount_root() {
 
 	close_luks_partition $DM_DEV
 
-	exec_or_die 'L=`losetup -O NAME -lnj $LOOP_FILE`'
+	exec_or_die 'L=$(losetup -O NAME -lnj $LOOP_FILE)'
 	[ "$L" ] && {
 		msg "Detaching loop device '$L'"
 		exec_or_die "losetup -d $L"
@@ -345,7 +348,7 @@ function mount_boot() {
 	mountpoint -q $MNT_DIR && { [ "$CBU" ] && exit; return; }
 	[ "$USB_P1" ] || get_target_dev
 
-	[ `lsblk -no LABEL $USB_P1` == $BOOTFS_LABEL ] || die 'Boot partition label incorrect!'
+	[ $(lsblk -no LABEL $USB_P1) == $BOOTFS_LABEL ] || die 'Boot partition label incorrect!'
 	exec_or_die "mkdir -p $MNT_DIR"
 
 	gmsg "Mounting boot partition on '$MNT_DIR'"
@@ -404,7 +407,7 @@ function exec_or_die() {
 	fi
 }
 function delete_chroot() {
-	if [ "`ls $CHROOT_DIR`" ]; then
+	if [ "$(ls $CHROOT_DIR)" ]; then
 		gmsg "Deleting '$CHROOT_DIR'"
 		exec_or_die "rm -rf $CHROOT_DIR"
 	fi
@@ -427,7 +430,7 @@ function apt_get_update () {
 		}
 		HOST_APT_UPDATED=1
 	else
-		T=`stat -c %Y '/setup/last_apt_update' 2>/dev/null` NOW=`date +%s`
+		T=$(stat -c %Y '/setup/last_apt_update' 2>/dev/null) NOW=$(date +%s)
 		[ "$T" -a $((NOW-T)) -lt 3600 ] || {
 			exec_or_die "$APT_GET -q update"
 			exec_or_die "$APT_GET --yes upgrade"
@@ -438,9 +441,9 @@ function apt_get_update () {
 function apt_get_install_chk() {
 	ADD_ARGS=$2
 	if [ "$IN_CHROOT" ]; then SYSTEM='chroot'; else SYSTEM='host'; fi
-	REQ_PKGS=$1 NUM_PKGS=`echo $REQ_PKGS | wc -w`
+	REQ_PKGS=$1 NUM_PKGS=$(echo $REQ_PKGS | wc -w)
 	[ "$DEBUG" ] && debug_msg "REQ_PKGS: $REQ_PKGS NUM_PKGS: $NUM_PKGS"
-	INSTALLED=`dpkg -l $REQ_PKGS | grep ^ii | wc -l`
+	INSTALLED=$(dpkg -l $REQ_PKGS | grep ^ii | wc -l)
 	if [ "$INSTALLED" != $NUM_PKGS -o "$ADD_ARGS" == '--reinstall' ]; then
 		apt_get_update
 		msg "Installing requested packages on $SYSTEM system: $REQ_PKGS"
@@ -600,9 +603,9 @@ function cf_write() {
 	gecho "${CFG_NAMES[$ID]} $YELLOW($ACTION)$RESET"
 	if [ "$DEBUG" ]; then OUT='/dev/tty'; else OUT=${OF[$ID]}; fi
 	if [ "$ACTION" == 'append' ]; then
-		NLINES=`echo -e "$CF_HDR$TEXT" | wc -l`
-		A="`tail -n$NLINES ${OF[$ID]}`"
-		B=`echo -e "$CF_HDR$TEXT"`
+		NLINES=$(echo -e "$CF_HDR$TEXT" | wc -l)
+		A="$(tail -n$NLINES ${OF[$ID]})"
+		B=$(echo -e "$CF_HDR$TEXT")
 		[ "$A" == "$B" ] || exec_or_die 'echo -e "$CF_HDR$TEXT" >> $OUT'
 	elif [ "$ACTION" == 'uncomment' ]; then
 		PAT='^#\s*'${TEXT// /\\s*}'\s*'
@@ -616,7 +619,7 @@ function cf_write() {
 		(head -n$((LNUM-1)) ${OF[$ID]}; echo "$REPL"; tail -n+$LNUM ${OF[$ID]}) > $TMP_CF
 		exec_or_die "cat $TMP_CF > $OUT"
 	else
-		[ "$OUT" != '/dev/tty' ] && exec_or_die "mkdir -p `dirname $OUT`"
+		[ "$OUT" != '/dev/tty' ] && exec_or_die "mkdir -p $(dirname $OUT)"
 		exec_or_die 'echo -e "$CF_HDR$TEXT" > $OUT'
 	fi
 }
@@ -658,7 +661,7 @@ function usb_create_system_cfg_files() {
 	declare -A OF
 	for i in ${!CFG_NAMES[*]}; do OF[$i]=$USB_MNT_DIR${CFG_NAMES[$i]}; done
 
-	BOOT_UUID=`lsblk -no UUID $USB_P1`
+	BOOT_UUID=$(lsblk -no UUID $USB_P1)
 	[ "$BOOT_UUID" ] || die 'Missing boot filesystem UUID'
 
 	cf_append 'do_hdr' 'etc_sudoers' "$USER ALL = NOPASSWD: ALL"
@@ -697,7 +700,7 @@ GRUB_BACKGROUND="/boot/grub/backgrounds/dark-blue.tga"
 GRUB_DEFAULT=0
 GRUB_HIDDEN_TIMEOUT_QUIET=true
 GRUB_TIMEOUT=-1
-GRUB_DISTRIBUTOR=`lsb_release -i -s 2> /dev/null || echo Debian`
+GRUB_DISTRIBUTOR=$(lsb_release -i -s 2> /dev/null || echo Debian)
 GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"
 GRUB_CMDLINE_LINUX=""
 GRUB_TERMINAL=gfxterm
@@ -779,13 +782,13 @@ function install_bitcoind() {
 	gmsg 'Retrieving Bitcoin Core'
 	URL='https://bitcoin.org/bin/'
 	exec_or_die "TEXT=$(eval $LYNX --listonly --nonumbers --dump $URL)"
-#	TEXT=`cat /setup/bitcoin.org.bin.txt`
-	UPATH=`echo "$TEXT"| egrep -i  'http.*bitcoin.*core' | sort -V | tail -n1`
+#	TEXT=$(cat /setup/bitcoin.org.bin.txt)
+	UPATH=$(echo "$TEXT"| egrep -i  'http.*bitcoin.*core' | sort -V | tail -n1)
 	VER=${UPATH/*-} VER=${VER%/}
 	yecho "Latest version from $URL is $VER"
 
 #	bitcoin-0.13.0-x86_64-linux-gnu.tar.gz
-	if ARCHIVE=`ls bitcoin-*-${ALT_ARCH}-linux-gnu.tar.gz | tail -n1 2>/dev/null`; then
+	if ARCHIVE=$(ls bitcoin-*-${ALT_ARCH}-linux-gnu.tar.gz | tail -n1 2>/dev/null); then
 		echo "Found Bitcoin Core archive '$ARCHIVE' in build directory"
 		LVER=${ARCHIVE#*-} LVER=${LVER%%-*}
 		if [ "$LVER" == "$VER" ]; then
@@ -859,10 +862,10 @@ function chroot_install_no_apt() {
 
 function setup_loop() {
 	if [ -e $LOOP_FILE ]; then
-		S=$((`du -b $LOOP_FILE | sed 's/\s.*//'` / 1024 / 1024))
+		S=$(($(du -b $LOOP_FILE | sed 's/\s.*//') / 1024 / 1024))
 		if [ "$S" != $LOOP_SIZE ]; then
 			msg "Loop file had incorrect size (${S}M)...deleting"
-			exec_or_die 'L=`losetup -O NAME -lnj $LOOP_FILE`'
+			exec_or_die 'L=$(losetup -O NAME -lnj $LOOP_FILE)'
 			exec_or_die '[ "$L" ] && losetup -d $L'
 			exec_or_die "rm $LOOP_FILE"
 		fi
@@ -872,10 +875,10 @@ function setup_loop() {
 		exec_or_die "dd if=/dev/zero of=$LOOP_FILE bs=1M count=$LOOP_SIZE 2>/dev/null"
 		echo 'done'
 	fi
-	exec_or_die 'LOOP_DEV=`losetup -O NAME -lnj $LOOP_FILE`'
+	exec_or_die 'LOOP_DEV=$(losetup -O NAME -lnj $LOOP_FILE)'
 	if [ ! "$LOOP_DEV" ]; then
 		msg "Associating file '$LOOP_FILE' with loop device '$LOOP_DEV'"
-		exec_or_die 'LOOP_DEV=`losetup -f`'
+		exec_or_die 'LOOP_DEV=$(losetup -f)'
 		exec_or_die "losetup $LOOP_DEV $LOOP_FILE"
 	else
 		msg "File '$LOOP_FILE' already associated with loop device '$LOOP_DEV'"
@@ -895,7 +898,7 @@ function get_usb_dev() {
 		while sleep 2; do
 			echo -n .
 			LS_SAVE=$LS
-			LS=`echo /dev/sd*`
+			LS=$(echo /dev/sd*)
 			if [ "$LS_SAVE" -a "${#LS}" -gt "${#LS_SAVE}" ]; then
 				USB_DEV=(${LS#$LS_SAVE})
 				break
@@ -926,11 +929,11 @@ function partition_usb() {
 	get_target_dev
 	gmsg "Creating $TYPE partition on $USB_DEV_DESC ($USB_DEV)"
 
-	ROOTFS_SIZE=(`du -sm $CHROOT_DIR 2>/dev/null`)
+	ROOTFS_SIZE=($(du -sm $CHROOT_DIR 2>/dev/null))
 	# 4MB alignment for cheap drives - see 'info parted - mkpart'
 	ROOTFS_SIZE=$((ROOTFS_SIZE+4-(ROOTFS_SIZE%4)))
 #	msg "Root FS size: $ROOTFS_SIZE"
-	DEV_SIZE=`parted $USB_DEV unit MiB print 2>/dev/null | grep ^Disk | sed 's/.* //' | sed 's/MiB$//'`
+	DEV_SIZE=$(parted $USB_DEV unit MiB print 2>/dev/null | grep ^Disk | sed 's/.* //' | sed 's/MiB$//')
 	TOTAL_SIZE=$((BS_SIZE+BOOTFS_SIZE+ROOTFS_SIZE+PAD_SIZE))
 	if [ "$LOOP_INSTALL" ]; then
 		TOTAL_SIZE=$DEV_SIZE
@@ -1081,13 +1084,13 @@ function usb_copy_userdir() {
 }
 function backup_apt_archives() {
 	[ "$NO_APT_BACKUP" ] && return
-	[ "`ls $APT_ARCHIVE_DIR`" ] || { msg "'$APT_ARCHIVE_DIR' empty, nothing to back up"; return; }
+	[ "$(ls $APT_ARCHIVE_DIR)" ] || { msg "'$APT_ARCHIVE_DIR' empty, nothing to back up"; return; }
 	gmsg "Backing up '$APT_ARCHIVE_DIR'"
 	exec_or_die "tar -C $APT_ARCHIVE_DIR -cf $APT_ARCHIVE ."
 	exec_or_die "rm -r $APT_ARCHIVE_DIR/*"
 }
 function restore_apt_archives() {
-	[ "`ls $APT_ARCHIVE_DIR`" ] && return
+	[ "$(ls $APT_ARCHIVE_DIR)" ] && return
 	[ "$NO_APT_BACKUP" ] && return
 	[ -e "$APT_ARCHIVE" ] && {
 		gmsg "Restoring '$APT_ARCHIVE_DIR'"
@@ -1096,14 +1099,14 @@ function restore_apt_archives() {
 }
 function backup_apt_lists() {
 	[ "$NO_APT_LISTS_BACKUP" ] && return
-	[ "`ls $APT_LISTS_DIR/*`" ] || { msg "'$APT_LISTS_DIR' empty, nothing to back up"; return; }
+	[ "$(ls $APT_LISTS_DIR/*)" ] || { msg "'$APT_LISTS_DIR' empty, nothing to back up"; return; }
 	gmsg "Backing up '$APT_LISTS_DIR'"
 	exec_or_die "tar -C $APT_LISTS_DIR -cf $APT_LISTS_ARCHIVE ."
 	exec_or_die "rm -r $APT_LISTS_DIR/*"
 	exec_or_die "mkdir -p $APT_LISTS_DIR/partial"
 }
 function restore_apt_lists() {
-	[ "`ls $APT_LISTS_DIR/*`" ] && return
+	[ "$(ls $APT_LISTS_DIR/*)" ] && return
 	[ "$NO_APT_LISTS_BACKUP" ] && return
 	[ -e "$APT_LISTS_ARCHIVE" ] && {
 		gmsg "Restoring '$APT_LISTS_DIR'"
@@ -1139,7 +1142,7 @@ function live_install_kernel() {
 	esac
 	bmsg "NOTE: the package installer may present you with a list of devices for GRUB to be installed on.  Leave all the items in the list unchecked and select 'OK'.  In the following dialog box, answer 'Yes' to the question 'Continue installing without GRUB?'"
 	pause
-	exec_or_die "PKG2=`apt-cache depends $PKG | head -n2 | tail -n1 | sed 's/.* //'`"
+	exec_or_die "PKG2=$(apt-cache depends $PKG | head -n2 | tail -n1 | sed 's/.* //')"
 	apt_get_update
 	# /boot might have been reformatted/deleted, but apt doesn't know
 	exec_or_die "$APT_GET --yes purge $PKG $PKG2"
@@ -1194,10 +1197,10 @@ function usb_delete_setup_script() {
 }
 function usb_create_grub_cfg_file() {
 	depends 'location=usb' umount_all mount_root mount_boot_usb && return
-	BOOT_UUID=`lsblk -no UUID $USB_P1`
-	ROOT_UUID=`lsblk -no UUID $USB_P2 | head -n1`
-	VMLINUZ=`basename $USB_MNT_DIR/boot/vmlinuz*`
-	INITRD=`basename $USB_MNT_DIR/boot/initrd*`
+	BOOT_UUID=$(lsblk -no UUID $USB_P1)
+	ROOT_UUID=$(lsblk -no UUID $USB_P2 | head -n1)
+	VMLINUZ=$(basename $USB_MNT_DIR/boot/vmlinuz*)
+	INITRD=$(basename $USB_MNT_DIR/boot/initrd*)
 	[ "$BOOT_UUID" -a "$ROOT_UUID" ] || die 'Missing UUID'
 	[ "$VMLINUZ" -a "$INITRD" ] || die 'Missing kernel or initrd'
 
@@ -1285,6 +1288,11 @@ function usb_gen_locales() {
 function usb_config_misc() {
 	depends 'location=usb' mount_root && return; usb_install $FUNCNAME
 }
+function create_changelog() {
+#	depends 'location=chroot' && return
+	exec_or_die 'BODY=$(egrep -h "^#:(REV|DESC):" $(ls upgrade/*/upgrade-*.sh | tac) | sed "s/^#:DESC:/+/" | sed "s/^#:REV:\s*/\n### v/")'
+	echo -e "## ChangeLog\n$BODY" > ChangeLog.md
+}
 function usb_create_docs() {
 	depends 'location=usb' mount_root && return; usb_install $FUNCNAME
 }
@@ -1347,7 +1355,18 @@ function setup_sh_usb_create_docs() {
 	rm -rf $DEST/doc
 	mkdir -p $DEST/doc
 	echo "$FILES" | while read a b c; do
-		(sed -r "s/\`([^\`]*)<([^\`]*)>([^\`]*)\`/'\1\&lt;\2>\3'/g" $SRC/$a/$b.md | sed "s/\`/'/g" | kramdown | elinks -no-numbering -dump) > $DEST/$c/$b
+		src_dir=$SRC/$a
+		 [ -d $src_dir ] || {
+			echo "'$src_dir' doesn't exist.  Cannot generate documentation"
+			[ "$IN_MMLIVE_SYSTEM" ] && return
+			die 'Exiting'
+		 }
+		(
+		 sed -r "s/\`([^\`]*)<([^\`]*)>([^\`]*)\`/'\1\&lt;\2>\3'/g" $src_dir/$b.md | \
+		 sed "s/\`/'/g" | kramdown | elinks -no-numbering -dump
+		) > $DEST/$c/$b
+		exec_or_die "chown $USER:$USER $DEST/$c/$b"
+		exec_or_die "chmod 644 $DEST/$c/$b"
 	done
 }
 
@@ -1449,11 +1468,15 @@ function setup_sh_usb_install_homedir() {
 	exec_or_die "rm -rf $GIT_DIR"
 	exec_or_die "mkdir -p $GIT_DIR"
 	exec_or_die "chown $USER:$USER $GIT_DIR"
+
     repos='MMGenLive MMGenLive.wiki mmgen.wiki mmgen-node-tools'
     url_base='https://github.com/mmgen'
 	for repo in $repos; do
 		exec_or_die "su - $USER -c 'cd $GIT_DIR && $GIT clone $url_base/$repo.git'"
 	done
+	exec_or_die 'mv -v mmgen.wiki mmgen-wiki'
+	exec_or_die 'mv -v MMGenLive.wiki mmlive-wiki'
+
 	su - $USER -c "$GIT config --global user.email 'mmlive@nowhere.com'"
 	su - $USER -c "$GIT config --global user.name 'MMGenLive User'"
 	su - $USER -c "$GIT config --global core.pager 'less -R'"
@@ -1470,7 +1493,7 @@ function setup_sh_usb_install_homedir() {
 function setup_sh_usb_update_initramfs() {
 	export CRYPTSETUP=y
 	gmsg 'Generating initramfs'
-	KVER=`ls boot | grep vmlinuz | sed 's/vmlinuz-//'`
+	KVER=$(ls boot | grep vmlinuz | sed 's/vmlinuz-//')
 	if [ "$KVER" ]; then
 		[ "$RELEASE" == 'jessie' ] && ARG='-t'
 		msg "Found kernel version '$KVER'"
@@ -1507,13 +1530,13 @@ function inf2tense() {
 		)
 	fi
 	for p in "${PAIRS[@]}"; do
-		A=`echo $A | sed -r "s/(^| but |; )([a-z]*)${p/ *}\>/\1\2${p/* }/g"`
+		A=$(echo $A | sed -r "s/(^| but |; )([a-z]*)${p/ *}\>/\1\2${p/* }/g")
 	done
 	echo ${A^}
 }
 
 function check_done () {
-# 	recho "check_done(`eval echo $@`)"
+# 	recho "check_done($(eval echo $@))"
 	local FUNC location PDIR
 	FUNC=$1
 	eval "$2" # 'location=xxx'
@@ -1544,7 +1567,7 @@ function check_done () {
 #		[ "$SHOW_DEPENDS" ] && CMD='recho "$FUNCNAME: would execute: $FUNC"'
 		[ "$SHOW_DEPENDS" ] && recho "$FUNCNAME: executing: $FUNC"
  		if eval "$CMD"; then
-			gmsg "`inf2tense 'past' ${DESCS[$FUNC]}`"
+			gmsg "$(inf2tense 'past' ${DESCS[$FUNC]})"
 			[ "$PDIR" == 'none' ] && return
  			exec_or_die "mkdir -p $PDIR"
  			exec_or_die "touch $PDIR/$FUNC"
@@ -1564,8 +1587,8 @@ function usbimg2file () {
 	OF=$IMG_FILE$GZIPEXT
 	get_usb_dev
 	M=$((1024*1024))
-	BP_SIZE=`sudo lsblk -nb -o SIZE $USB_P1`
-	RP_SIZE=`sudo lsblk -nb -o SIZE $USB_P2`
+	BP_SIZE=$(sudo lsblk -nb -o SIZE $USB_P1)
+	RP_SIZE=$(sudo lsblk -nb -o SIZE $USB_P2)
 	for i in 'BP_SIZE' 'RP_SIZE'; do
 		val=${!i} rem=$((val%(4*M)))
 		if [ "$rem" -ne 0 ]; then die "$i size ($val) is not a multiple of 4M!"; fi
@@ -1685,6 +1708,7 @@ function build_usb() {
 		usb_gen_locales \
 		usb_config_misc \
 		usb_create_docs \
+		create_changelog \
 		usb_create_grub_cfg_file \
 		usb_delete_setup_script # do this last
 }
@@ -1774,17 +1798,17 @@ declare -A USB_DEV_DESCS=([usb]='USB drive' [loop]='loop device')
 [ "$USB_DEV_TYPE" ] && USB_DEV_DESC=${USB_DEV_DESCS[$USB_DEV_TYPE]}
 
 if [ ! "$IN_CHROOT" ]; then
-	cd `dirname $0`
+	cd $(dirname $0)
 	mkdir -p $CHROOT_DIR/setup $USB_MNT_DIR $IMG_ROOT_MNT_DIR
 	[ -e '../mmgen/setup.py' ] || {
 		echo 'Unable to find the MMGen source repository.'
 		echo 'It must be located in the same directory as the MMGenLive source repository.'
 		exit
 	}
-	exec_or_die 'export MMGEN_ARCHIVE_NAME='`../mmgen/setup.py --fullname`'.tar.gz'
+	exec_or_die 'export MMGEN_ARCHIVE_NAME='$(../mmgen/setup.py --fullname)'.tar.gz'
 fi
 
-[ "$INFORM" ] && gmsg "`inf2tense 'gerund' ${DESCS[$TARGET]}`"
+[ "$INFORM" ] && gmsg "$(inf2tense 'gerund' ${DESCS[$TARGET]})"
 eval "$TARGET"; RET=$?
 [ "$IN_CHROOT" ] && exit 0
 

@@ -1,4 +1,7 @@
 #!/bin/bash
+#:REV: 0.0.7a
+#:DESC: mmlive-node-setup disk size check
+#:DESC: run mmgen-test with -O option
 
 PATCH1='--- bin/mmlive-node-setup.orig	2016-12-18 18:57:06.845667863 +0000
 +++ bin/mmlive-node-setup	2016-12-18 15:35:10.492000000 +0000

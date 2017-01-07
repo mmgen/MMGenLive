@@ -1,4 +1,8 @@
 #!/bin/bash
+#:REV: 0.0.7e
+#:DESC: add env vars http_proxy,etc. to /etc/sudoers
+#:DESC: install kramdown and elinks
+#:DESC: generate documentation
 
 set -e
 
@@ -17,7 +21,15 @@ function install_kramdown_elinks {
 	eval "$APT_GET install ruby-kramdown elinks"
 }
 
+function regen_docs {
+	echo "Generating documentation from Wikis"
+	(
+		cd /setup/git/MMGenLive
+		sudo ./build_system.sh setup_sh_usb_create_docs 'IN_MMLIVE_SYSTEM=1'
+	)
+}
+
 sudo grep -q 'http_proxy' $SUDOERS || edit_sudoers
-which kramdown elinks >/dev/null || install_kramdown_elinks
+which kramdown elinks >/dev/null || { install_kramdown_elinks; regen_docs; }
 
 exit 0

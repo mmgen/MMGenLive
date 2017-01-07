@@ -1,7 +1,10 @@
 # MMGenLive
 
 MMGenLive is a fully functional Linux system on a USB stick with the [MMGen
-online/offline Bitcoin wallet][6] and related programs preinstalled.
+online/offline Bitcoin wallet][6], Bitcoin Core and related programs preinstalled.
+
+***MMGenLive is also an easy way to set up and run a full node, whether you
+choose to use the MMGen wallet or not.***
 
 MMGenLive gives you, out of the box:
 
@@ -13,9 +16,6 @@ MMGenLive gives you, out of the box:
 
 MMGenLive can be used both as an offline signing wallet and as an online
 tracking/transacting wallet with a full or pruned blockchain.
-
-**MMGenLive also provides an easy way to set up and run a full node, whether you
-use the MMGen wallet or not**
 
 ### There are two ways to install and run MMGenLive:
 
@@ -64,8 +64,12 @@ use the MMGen wallet or not**
 
             sudo ./build_system.sh
 
-**An up-to-date version of the MMGenLive internal documentation can be found
-[here][8]**
+*The automated shell script is under constant development.  Tagged versions
+should work but current master commits may not.  You've been warned.*
+
+**View the [MMGenLive internal documentation][8]**
+
+**View the [ChangeLog][9]**
 
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -81,3 +85,4 @@ Donate: 15TLdmi5NYLdqmtCqczUs5pBPkJDXRs83w
 [6]: https://github.com/mmgen/mmgen/
 [7]: https://sourceforge.net/projects/win32diskimager/
 [8]: https://github.com/mmgen/MMGenLive/wiki/MMGenLive-internal-documentation
+[9]: https://github.com/mmgen/MMGenLive/ChangeLog

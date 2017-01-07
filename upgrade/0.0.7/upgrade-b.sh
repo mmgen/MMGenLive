@@ -1,7 +1,11 @@
 #!/bin/bash
+#:REV: 0.0.7b
+#:DESC: git-config user,email
+#:DESC: clone MMGenLive repo
+#:DESC: make bin,doc,scripts directories symlinks
 
 set -e
-sudo apt-get update 
+sudo apt-get update
 sudo apt-get install git
 git config --global user.email "mmlive@nowhere.com"
 git config --global user.name "MMGenLive User"

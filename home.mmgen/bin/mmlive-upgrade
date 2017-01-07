@@ -101,7 +101,7 @@ function gen_docs {
 	(
 		echo "Generating documentation from $1"
 		cd ${REPOS['sys']% *}
-		IN_MMLIVE_SYSTEM=1 ./build_system.sh setup_sh_usb_create_docs
+		sudo ./build_system.sh setup_sh_usb_create_docs 'IN_MMLIVE_SYSTEM=1'
 	)
 }
 

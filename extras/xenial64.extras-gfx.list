@@ -11,6 +11,7 @@ home/mmgen/scripts/
 home/mmgen/scripts/.autostart
 home/mmgen/.Xresources
 home/mmgen/.xscreensaver
+home/mmgen/.gvimrc
 home/mmgen/.config/
 home/mmgen/.config/dconf/
 home/mmgen/.config/dconf/user
