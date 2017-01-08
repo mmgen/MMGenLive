@@ -1,9 +1,14 @@
 ## ChangeLog
 
+### v0.0.7g
++ make ~/Desktop a symlink
++ install alsa-utils
++ this rev enables the ticker and alarm clock icons
+
 ### v0.0.7f
 + install unzip and pycurl packages
 + upgrade MMGen to commit eb6f7ef195bd391174bd6563d0c85b1f1934873f
-+ this rev enables installation of node-tools
++ install node-tools
 
 ### v0.0.7e
 + add env vars http_proxy,etc. to /etc/sudoers

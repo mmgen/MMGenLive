@@ -5,6 +5,8 @@
 
 set -e
 
+echo 'Installing and configuring privoxy'
+
 . ~/scripts/include/functions.sh
 
 git config --global core.pager "less -R"

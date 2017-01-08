@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Ticker
+Comment=
+Exec=scripts/term/terminal-small.sh ~/scripts/ticker.sh 'MMTERM_GEOMETRY="-geometry 80x12+164+12"' 'MMTERM_NAME=Ticker'
+Icon=/usr/share/icons/Adwaita/24x24/devices/computer.png
+Path=
+Terminal=false
+StartupNotify=false

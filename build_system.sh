@@ -508,7 +508,7 @@ function chroot_install_mmgen_dependencies() {
 	apt_get_install_chk 'locales'
 	do_gen_locales
 
-	apt_get_install_chk 'gcc libgmp-dev make python-pip python-dev python-pexpect python-ecdsa python-scrypt libssl-dev elinks ruby-kramdown lynx unzip curl git libpcre3-dev python-setuptools python-wheel' '--no-install-recommends'
+	apt_get_install_chk 'gcc libgmp-dev make python-pip python-dev python-pexpect python-ecdsa python-scrypt libssl-dev alsa-utils elinks ruby-kramdown lynx unzip curl git libpcre3-dev python-setuptools python-wheel' '--no-install-recommends'
 
 	gmsg 'Installing the Python Cryptography Toolkit'
 	exec_or_die 'pip install pycrypto'

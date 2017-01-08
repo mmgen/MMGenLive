@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Vim Editor
+Comment=
+Exec=gvim
+Icon=gvim
+Path=
+Terminal=false
+StartupNotify=false

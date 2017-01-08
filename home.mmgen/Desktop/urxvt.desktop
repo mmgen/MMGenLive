@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Rxvt
+Comment=
+Exec=scripts/term/terminal.sh
+Icon=/usr/share/icons/Adwaita/24x24/devices/computer.png
+Path=
+Terminal=false
+StartupNotify=false

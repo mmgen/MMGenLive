@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Alarm Clock
+Comment=
+Exec=scripts/term/terminal-small.sh ~/scripts/alarm_clock.sh 'MMTERM_GEOMETRY="-geometry 80x12+164+12"' 'MMTERM_NAME="Alarm Clock"'
+Icon=/usr/share/icons/Adwaita/24x24/devices/computer.png
+Path=
+Terminal=false
+StartupNotify=false

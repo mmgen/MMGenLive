@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Terminal
+Comment=
+Exec=scripts/term/terminal-medium.sh ~/scripts/term/tmux.sh
+Icon=/usr/share/icons/Adwaita/24x24/devices/computer.png
+Path=
+Terminal=false
+StartupNotify=false

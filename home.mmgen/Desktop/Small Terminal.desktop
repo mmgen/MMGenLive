@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Small Terminal
+Comment=
+Exec=scripts/term/terminal-small.sh ~/scripts/term/tmux.sh
+Icon=/usr/share/icons/Adwaita/24x24/devices/computer.png
+Path=
+Terminal=false
+StartupNotify=false
