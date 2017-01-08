@@ -85,4 +85,4 @@ Donate: 15TLdmi5NYLdqmtCqczUs5pBPkJDXRs83w
 [6]: https://github.com/mmgen/mmgen/
 [7]: https://sourceforge.net/projects/win32diskimager/
 [8]: https://github.com/mmgen/MMGenLive/wiki/MMGenLive-internal-documentation
-[9]: https://github.com/mmgen/MMGenLive/ChangeLog
+[9]: https://github.com/mmgen/MMGenLive/blob/master/ChangeLog.md

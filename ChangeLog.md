@@ -1,4 +1,9 @@
-## MMGenLive revision ChangeLog
+## ChangeLog
+
+### v0.0.7f
++ install unzip and pycurl packages
++ upgrade MMGen to commit eb6f7ef195bd391174bd6563d0c85b1f1934873f
++ this rev enables installation of node-tools
 
 ### v0.0.7e
 + add env vars http_proxy,etc. to /etc/sudoers

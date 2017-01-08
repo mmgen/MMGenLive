@@ -14,7 +14,7 @@ CURL='curl -s -L'
 PRIVOXY='http://localhost:8118'
 PROJ_NAME='MMLiveUpgrade'
 ONLINE=1
-CURL='curl' GIT='git' APT_GET='sudo apt-get' LYNX='lynx'
+CURL='curl' GIT='git' APT_GET='sudo apt-get --yes' LYNX='lynx' BUILD_SYSTEM='sudo ./build_system.sh'
 declare -A REPOS=(
 	[sys]='/setup/git/MMGenLive           https://github.com/mmgen/MMGenLive.git'
 	[mmgen_wiki]='/setup/git/mmgen-wiki   https://github.com/mmgen/mmgen.wiki.git'
@@ -42,16 +42,18 @@ do
 	G) ONLINE= ;;
 	p) PROXY=$OPTARG
 	   CURL="$CURL -x $OPTARG"
-	   GIT="all_proxy=$OPTARG git"
-	   APT_GET="https_proxy=$OPTARG http_proxy=$OPTARG sudo apt-get"
-	   LYNX="https_proxy=$OPTARG http_proxy=$OPTARG lynx" ;;
+	   GIT="all_proxy=$OPTARG $GIT"
+	   APT_GET="https_proxy=$OPTARG http_proxy=$OPTARG $APT_GET"
+	   BUILD_SYSTEM="$BUILD_SYSTEM -P $OPTARG"
+	   LYNX="https_proxy=$OPTARG http_proxy=$OPTARG $LYNX" ;;
 	s) SKIP_COMMIT_AUTH=1 ;;
 	s) SKIP_PGP_VERIFY=1 ;;
 	T) TOR='localhost:9050'
 	   CURL="$CURL -x $PRIVOXY"
-	   GIT="all_proxy=$PRIVOXY git"
-	   APT_GET="https_proxy=$PRIVOXY http_proxy=$PRIVOXY sudo apt-get"
-	   LYNX="https_proxy=$PRIVOXY http_proxy=$PRIVOXY lynx" ;;
+	   GIT="all_proxy=$PRIVOXY $GIT"
+	   APT_GET="https_proxy=$PRIVOXY http_proxy=$PRIVOXY $APT_GET"
+	   BUILD_SYSTEM="$BUILD_SYSTEM -P $PRIVOXY"
+	   LYNX="https_proxy=$PRIVOXY http_proxy=$PRIVOXY $LYNX" ;;
 	*) exit ;;
 	esac
 done
@@ -59,7 +61,7 @@ done
 ARGV="$@"
 shift $((OPTIND-1))
 
-export ONLINE CURL GIT APT_GET LYNX
+export ONLINE CURL GIT APT_GET LYNX BUILD_SYSTEM
 [ "$REEXEC" ] || {
 	[ "$PROXY" ] && echo "Connecting via proxy $PROXY"
 	[ "$TOR" ] && echo "Connecting via Tor ($TOR) over privoxy ($PRIVOXY)"
@@ -67,7 +69,7 @@ export ONLINE CURL GIT APT_GET LYNX
 
 . ~/scripts/include/functions.sh
 
-function gpg_verify() {
+function gpg_verify {
 	[ "$SKIP_PGP_VERIFY" ] && return 0
 	echo -n "Verifying signature on '$2'..."
 	set +e
@@ -77,21 +79,25 @@ function gpg_verify() {
 	echo "OK"
 }
 
+function version_ge {
+	H=$(echo -e "$MY_VER$MY_REV\n$1" | sort -V | head -n1)
+	[ "$H" == "$1" ] && return 0
+	return 1
+}
+
 function init_vars {
 	MY_VER=$(cat $HOME/var/version)
 	DIR="$HOME/var/$MY_VER"
 
-	# R8
-	if [ ! -d "$DIR" ]; then
+	if [ ! -d "$DIR" ]; then # begin R8
 		mkdir -p "$DIR"
 		FILES="$(ls $HOME/var/upgrade* $HOME/var/revision* 2>/dev/null)"
 		[ "$FILES" ] && { echo 'Relocating revision and upgrade files'; mv -f $FILES $DIR; }
-		mv $DIR/revision $DIR/revision.my || true
-		mv $DIR/revision.cur $DIR/revision || true
-		mv $DIR/revision.cur.sig $DIR/revision.sig || true
 	fi
+	mv -f $DIR/revision.my $DIR/revision 2>/dev/null || true
+	rm -rf $DIR/revision.* # end R8
 
-	MY_REV=$(cat $DIR/revision.my)
+	MY_REV=$(cat $DIR/revision) # empty string for revision 0
 	[ "$REEXEC" ] || gmsg "Version $MY_VER, revision '$MY_REV'"
 
 	GPG='gpg --quiet --trust-model always'
@@ -102,6 +108,22 @@ function gen_docs {
 		echo "Generating documentation from $1"
 		cd ${REPOS['sys']% *}
 		sudo ./build_system.sh setup_sh_usb_create_docs 'IN_MMLIVE_SYSTEM=1'
+	)
+}
+
+function verify_commit {
+	git verify-commit $1 2>/dev/null || {
+		echo "Unable to verify latest commit for repo '$2'. Aborting"
+		exit 1
+	}
+	echo 'Signature on latest commit OK'
+}
+
+function python_install {
+	(
+		echo "Installing python repository '$1'"
+		cd $1
+		sudo python ./setup.py install
 	)
 }
 
@@ -116,18 +138,12 @@ function git_update {
 		cur_branch=$(git branch --color=never | grep '*' | awk '{ print $2 }')
 		git checkout -q master
 		OLD_LAST_COMMIT=$(git log --oneline --color=never --no-merges --pretty=%h | head -n1)
-		eval "$GIT pull --no-edit --force --strategy=recursive --strategy-option=theirs"
+		eval "$GIT pull --no-edit --force --strategy=recursive --strategy-option=theirs" # DEBUG
 		LAST_COMMIT=$(git log --oneline --color=never --no-merges --pretty=%h | head -n1)
 		[ "$OLD_LAST_COMMIT" == "$LAST_COMMIT" ] || {
-#		true && { # DEBUG
-			[ "$SKIP_COMMIT_AUTH" ] || {
-				git verify-commit $LAST_COMMIT 2>/dev/null || {
-					echo "Unable to verify latest commit for repo '$repo'. Aborting"
-					exit 1
-				}
-				echo 'Signature on latest commit OK'
-			}
+			[ "$SKIP_COMMIT_AUTH" ] || verify_commit $LAST_COMMIT $repo
 			[ "${repo: -4}" == 'wiki' ] && gen_docs $repo
+			[ "${repo: -5}" == 'tools' ] && version_ge '0.0.7f' && python_install $repo_dir
 		}
 		git checkout -q $cur_branch
 	done
@@ -143,14 +159,14 @@ function offline_upgrade {
 	scripts=$(for s in $MY_VER/upgrade-?.sh; do s=${s#*upgrade-} s=${s%.sh}; echo -n " $s"; done)
 	printf "Target revision: '%s'\n" $(echo $scripts | sed 's/.* //')
 	for s in $scripts; do
-		if [ $s '>' $MY_REV ]; then
+		if [ $s '>' "$MY_REV" ]; then
 			script="$MY_VER/upgrade-$s.sh"
 			echo "Executing '$script'"
 			set +e
 			bash $script || { recho "Execution of script '$script' failed"; exit; }
 			set -e
-			echo $s > "$DIR/revision.my"
-			MY_REV=$(cat $DIR/revision.my)
+			echo $s > "$DIR/revision"
+			MY_REV=$(cat $DIR/revision)
 			bmsg "Upgraded to revision '$MY_REV'"
 		fi
 	done

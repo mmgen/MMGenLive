@@ -67,7 +67,6 @@ declare -A DESCS=(
 	[install_bitcoind]='install Bitcoin Core on the chroot system'
 	[install_host_dependencies]='install required packages on build machine'
 	[install_mmgen_dependencies]='install MMGen dependencies'
-	[install_mmgen]='install MMGen on the chroot system (but not in user dir)'
 	[reinstall_mmgen]='reinstall MMGen on the chroot system AND in user dir'
 	[install_vanitygen]='install Vanitygen'
 	[install_secp256k1]='install the secp256k1 library'
@@ -91,6 +90,8 @@ declare -A DESCS=(
 	[umount_vfs_usb]='unmount virtual filesystems on USB drive'
 	[usbimg2file]='copy the USB disk image to file'
 	[usbimg2filegzip]='copy the USB disk image to gzipped file'
+	[chroot_install_mmgen_user]='install MMGen in user directory and on system'
+	[chroot_install_mmgen_user_at_commit]='download and install MMGen source at given commit'
 
 	[install_grub]='install the GRUB boot loader'
 	[install_kernel]='install the Linux kernel'
@@ -116,6 +117,7 @@ declare -A DESCS=(
 	[clean]='delete all built files but keep archives of bootstrap and chroot system; reset progress state to zero'
 	[distclean]='delete all generated and downloaded files; restore repository to its original state'
 )
+#	[install_mmgen]='install MMGen on the chroot system (but not in user dir)'
 
 declare -A TARGETS
 for i in ${!DESCS[@]}; do
@@ -506,7 +508,7 @@ function chroot_install_mmgen_dependencies() {
 	apt_get_install_chk 'locales'
 	do_gen_locales
 
-	apt_get_install_chk 'gcc libgmp-dev make python-pip python-dev python-pexpect python-ecdsa python-scrypt libssl-dev elinks ruby-kramdown lynx curl git libpcre3-dev python-setuptools python-wheel' '--no-install-recommends'
+	apt_get_install_chk 'gcc libgmp-dev make python-pip python-dev python-pexpect python-ecdsa python-scrypt libssl-dev elinks ruby-kramdown lynx unzip curl git libpcre3-dev python-setuptools python-wheel' '--no-install-recommends'
 
 	gmsg 'Installing the Python Cryptography Toolkit'
 	exec_or_die 'pip install pycrypto'
@@ -526,15 +528,43 @@ function chroot_install_secp256k1() {
 	exec_or_die "$GIT clone https://github.com/bitcoin-core/secp256k1.git"
 	exec_or_die '(cd secp256k1; ./autogen.sh; ./configure; make; make install)'
 }
-function chroot_install_mmgen() {
-	exec_or_die 'cd /setup'
-	exec_or_die "tar xzf $MMGEN_ARCHIVE_NAME"
-	exec_or_die "(cd ${MMGEN_ARCHIVE_NAME/.tar.gz}; python ./setup.py --quiet install)"
-}
+# function chroot_install_mmgen() {
+# 	exec_or_die 'cd /setup'
+# 	exec_or_die "tar xzf $MMGEN_ARCHIVE_NAME"
+# 	exec_or_die "(cd ${MMGEN_ARCHIVE_NAME/.tar.gz}; python ./setup.py --quiet install)"
+# }
 function chroot_cleanup_mmgen_builds() {
 	exec_or_die 'cd /setup'
 	exec_or_die 'rm -rf bitcoin-* mmgen-* pexpect-* vanitygen secp256k1'
 	exec_or_die 'rm -rf ~mmgen/.bitcoin'
+}
+function chroot_install_mmgen_user_at_commit() {
+	[ "$MMGEN_COMMIT" ] || die '$MMGEN_COMMIT not set'
+	gmsg "Downloading MMGen zip archive at commit '$MMGEN_COMMIT'"
+	MMGEN_ZIP_ARCHIVE_NAME="mmgen-$MMGEN_COMMIT.zip"
+	exec_or_die "$CURL -L -o /setup/$MMGEN_ZIP_ARCHIVE_NAME $MMGEN_REPO_PATH/archive/$MMGEN_COMMIT.zip"
+	chroot_install_mmgen_user
+}
+function chroot_install_mmgen_user() {
+	gmsg "Removing old MMGen installation in home directory"
+	exec_or_die "su - $USER -c 'rm -rf src && mkdir src'"
+
+	gmsg "Unpacking MMGen Python archive in user ~${USER}/src"
+	AR=$MMGEN_ARCHIVE_NAME AR_PROG='tar -xzf'
+	[ "$MMGEN_ZIP_ARCHIVE_NAME" ] && AR=$MMGEN_ZIP_ARCHIVE_NAME AR_PROG='unzip'
+	[ "$AR" ] || die "No archive found"
+	exec_or_die "chmod 644 /setup/$AR"
+	exec_or_die "su - $USER -c 'cd src && $AR_PROG /setup/$AR'"
+
+	gmsg "Building secp256k1 extension module in ~${USER}/src"
+	exec_or_die "su - $USER -c 'cd src/mmgen-* && ./setup.py build_ext'"
+
+	gmsg "Installing MMGen on system"
+ 	exec_or_die "(cd ~$USER/src/mmgen-* && python ./setup.py --quiet install)"
+ 	exec_or_die "(cd ~$USER/src/mmgen-* && rm -rf build)"
+
+	gmsg "Removing MMGen archive"
+ 	exec_or_die "rm -f /setup/$AR"
 }
 function chroot_setup_user() {
 	grep -q "^$USER:" /etc/passwd || exec_or_die "useradd -s /bin/bash -m $USER"
@@ -544,15 +574,10 @@ function chroot_setup_user() {
 	exec_or_die "echo $USER:$PASSWD | chpasswd"
 #	exec_or_die "echo root:$PASSWD | chpasswd"  # no root login
 
-	gmsg "Removing old MMGen installation in home directory"
-	exec_or_die "su - $USER -c 'rm -rf src bin doc scripts'"
+	gmsg "Removing old user dirs"
+	exec_or_die "su - $USER -c 'rm -rf bin doc scripts'"
 
-	gmsg "Unpacking MMGen Python archive in user ~${USER}/src"
-	exec_or_die "chmod 644 /setup/$MMGEN_ARCHIVE_NAME"
-	exec_or_die "su - $USER -c 'mkdir -p src; tar -C src -xzf /setup/$MMGEN_ARCHIVE_NAME'"
-
-	gmsg "Building secp256k1 extension module in ~${USER}/src"
-	exec_or_die "su - $USER -c 'cd src/mmgen-* && ./setup.py build_ext && rm -rf build'"
+	chroot_install_mmgen_user
 }
 function chroot_test_mmgen() {
 	c=1
@@ -825,11 +850,11 @@ function install_bitcoind() {
 	exec_or_die "cp -v bitcoin-$VER/bin/bitcoin{d,-cli} $CHROOT_DIR/usr/local/bin"
 	exec_or_die "rm -r bitcoin-$VER"
 }
-function install_mmgen() {
-	dbecho "==> $FUNCNAME($@)"
-	depends 'location=chroot' build_mmgen_sdist copy_mmgen_sdist install_mmgen_dependencies && return
-	chroot_install_no_apt $FUNCNAME 'INFORM=1'
-}
+# function install_mmgen() {
+# 	dbecho "==> $FUNCNAME($@)"
+# 	depends 'location=chroot' build_mmgen_sdist copy_mmgen_sdist install_mmgen_dependencies && return
+# 	chroot_install_no_apt $FUNCNAME 'INFORM=1'
+# }
 function reinstall_mmgen() {
 	dbecho "==> $FUNCNAME($@)"
 	rm -v $CHROOT_DIR/setup/progress/install_mmgen_dependencies
@@ -1743,11 +1768,11 @@ function build_chroot() {
 		install_vanitygen \
 		install_secp256k1 \
 		install_bitcoind \
-		install_mmgen \
 		setup_user \
 		test_mmgen \
 		cleanup_mmgen_builds \
 		backup_chroot_system
+#		install_mmgen \
 #	msg 'Installation of chroot system complete'
 }
 function get_target_dev() {
@@ -1767,6 +1792,7 @@ FUNCNEST=30
 
 PROJ_NAME='MMGenLive'
 PROJ_REPO='https://github.com/mmgen/MMGenLive.git'
+MMGEN_REPO_PATH='https://github.com/mmgen/mmgen'
 HOST='MMGenLive' USER='mmgen' USER_UID=1000 PASSWD='mmgen'
 BOOTFS_LABEL='MMGEN_BOOT' ROOTFS_LABEL='MMGEN_ROOT'
 DM_DEV='mmgen_p2' DM_ROOT_DEV='root_fs' DM_DEV_IMG='img_p2'
