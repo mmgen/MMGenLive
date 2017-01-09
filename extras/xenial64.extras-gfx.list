@@ -7,8 +7,6 @@ etc/X11/
 etc/X11/fallback.sh
 home/
 home/mmgen/
-home/mmgen/scripts/
-home/mmgen/scripts/.autostart
 home/mmgen/.Xresources
 home/mmgen/.xscreensaver
 home/mmgen/.gvimrc
@@ -60,17 +58,13 @@ home/mmgen/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-session.xml
 home/mmgen/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-keyboard-shortcuts.xml
 home/mmgen/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml
 home/mmgen/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml
-home/mmgen/Desktop/
-home/mmgen/Desktop/Small Terminal.desktop
-home/mmgen/Desktop/Large Terminal.desktop
-home/mmgen/Desktop/urxvt.desktop
-home/mmgen/Desktop/Vim Editor.desktop
-home/mmgen/Desktop/Terminal.desktop
 lib/
 lib/plymouth/
 lib/plymouth/themes/
 lib/plymouth/themes/lubuntu-logo/
 lib/plymouth/themes/lubuntu-logo/lubuntu_logo.png
+root/
+root/.gvimrc
 usr/
 usr/share/
 usr/share/images/

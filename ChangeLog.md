@@ -1,5 +1,11 @@
 ## ChangeLog
 
+### v0.0.7i
++ rewrite of 'update-grub-cfg-kver.sh'
+
+### v0.0.7h
++ install Bitcoin Core v0.13.2
+
 ### v0.0.7g
 + make ~/Desktop a symlink
 + install alsa-utils

@@ -92,6 +92,7 @@ declare -A DESCS=(
 	[usbimg2filegzip]='copy the USB disk image to gzipped file'
 	[chroot_install_mmgen_user]='install MMGen in user directory and on system'
 	[chroot_install_mmgen_user_at_commit]='download and install MMGen source at given commit'
+	[chroot_install_bitcoind_version]='download and install bitcoind binary of given version'
 
 	[install_grub]='install the GRUB boot loader'
 	[install_kernel]='install the Linux kernel'
@@ -508,7 +509,7 @@ function chroot_install_mmgen_dependencies() {
 	apt_get_install_chk 'locales'
 	do_gen_locales
 
-	apt_get_install_chk 'gcc libgmp-dev make python-pip python-dev python-pexpect python-ecdsa python-scrypt libssl-dev alsa-utils elinks ruby-kramdown lynx unzip curl git libpcre3-dev python-setuptools python-wheel' '--no-install-recommends'
+	apt_get_install_chk 'gcc libgmp-dev make python-pip python-dev python-pexpect python-ecdsa python-scrypt python-setuptools python-wheel libssl-dev alsa-utils elinks ruby-kramdown lynx unzip curl python-pycurl git libpcre3-dev' '--no-install-recommends'
 
 	gmsg 'Installing the Python Cryptography Toolkit'
 	exec_or_die 'pip install pycrypto'
@@ -575,7 +576,7 @@ function chroot_setup_user() {
 #	exec_or_die "echo root:$PASSWD | chpasswd"  # no root login
 
 	gmsg "Removing old user dirs"
-	exec_or_die "su - $USER -c 'rm -rf bin doc scripts'"
+	exec_or_die "su - $USER -c 'rm -rf bin doc scripts Desktop'"
 
 	chroot_install_mmgen_user
 }
@@ -802,53 +803,76 @@ function setup_user() {
 	depends 'location=chroot' && return
 	chroot_install_no_apt $FUNCNAME
 }
-function install_bitcoind() {
-	depends 'location=chroot' && return
-	gmsg 'Retrieving Bitcoin Core'
-	URL='https://bitcoin.org/bin/'
-	exec_or_die "TEXT=$(eval $LYNX --listonly --nonumbers --dump $URL)"
-#	TEXT=$(cat /setup/bitcoin.org.bin.txt)
-	UPATH=$(echo "$TEXT"| egrep -i  'http.*bitcoin.*core' | sort -V | tail -n1)
-	VER=${UPATH/*-} VER=${VER%/}
-	yecho "Latest version from $URL is $VER"
-
-#	bitcoin-0.13.0-x86_64-linux-gnu.tar.gz
-	if ARCHIVE=$(ls bitcoin-*-${ALT_ARCH}-linux-gnu.tar.gz | tail -n1 2>/dev/null); then
-		echo "Found Bitcoin Core archive '$ARCHIVE' in build directory"
-		LVER=${ARCHIVE#*-} LVER=${LVER%%-*}
-		if [ "$LVER" == "$VER" ]; then
-			echo "Local archive is newest version ($LVER)"; HAVE_LATEST_BITCOIND=1
-		else
-			echo "Local archive version ($LVER) is not latest ($VER)"
-		fi
+function get_bitcoind_dl_url { # sets DLDIR_URL, BITCOIND_URL, VER, ARCHIVE
+	VER=$1
+	gmsg "Finding download URL for Bitcoin Core version '$VER'"
+	DLDIR_URL='https://bitcoin.org/bin/'
+	TEXT=$(eval "$LYNX --listonly --nonumbers --dump $DLDIR_URL")
+#	echo "$TEXT" > /tmp/bitcoin.org.dl.txt
+#	TEXT=$(cat /tmp/bitcoin.org.dl.txt)
+	if [ "$VER" == 'latest' ]; then
+		URL_PATH=$(echo "$TEXT"| egrep -i  'http.*bitcoin.*core' | sort -V | tail -n1)
+	else
+		URL_PATH=$(echo "$TEXT"| egrep -i  'http.*bitcoin.*core' | grep "$VER\/")
 	fi
-
-	if [ ! "$HAVE_LATEST_BITCOIND" ]; then
-		if echo "$VER" | egrep -q '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-			echo "Latest version is $VER"
-			ARCHIVE="bitcoin-${VER}-${ALT_ARCH}-linux-gnu.tar.gz"
-			CURL_URL="${UPATH%/}/$ARCHIVE"
-			exec_or_die "$CURL -O $CURL_URL"
+	[ "$URL_PATH" ] || die "Couldn't find download url for version '$VER'"
+	VER=${URL_PATH/*-} VER=${VER%/}
+	ARCHIVE="bitcoin-${VER}-${ALT_ARCH}-linux-gnu.tar.gz"
+	BITCOIND_URL="${URL_PATH%/}/$ARCHIVE"
+	yecho "Need archive '$ARCHIVE'"
+}
+function retrieve_bitcoind { # retrieves to current directory
+	if echo "$VER" | egrep -q '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+		echo "Latest version is $VER"
+		if [ -e "$ARCHIVE" ]; then
+			gecho "Found locally-stored archive for version $VER"
+		else
+			gecho "Retrieving Bitcoin Core $VER from '$DLDIR_URL'"
+			exec_or_die "$CURL -O $BITCOIND_URL"
+		fi
+		# checksums: https://github.com/bitcoin-core/gitian.sigs
+		if [ "$BITCOIND_CHKSUM" ]; then
+			CHK=($(sha256sum $ARCHIVE))
+			[ "$CHK" == "$BITCOIND_CHKSUM" ] || die "Checksum of archive ($CHK) doesn't match"
+			echo 'Archive checksum OK'
+		else
 			exec_or_die "sha256sum $ARCHIVE"
-			bmsg 'Please verify sha256 sum above from a trusted source before continuing'
+			kmsg 'Please verify sha256 sum above from a trusted source before continuing'
 			pause
-		else
-			yecho -n "Unable to find latest version of Bitcoin Core"
-			yecho " (version number ${VER} doesn't fit pattern)."
-			yecho "See: $URL"
-			yecho -n "Download the latest Linux $ARCH_BITS-bit gzipped tar archive, place it in"
-			yecho " the same directory as this script, and restart the script."
-			die
 		fi
+	else
+		yecho -n "Unable to find latest version of Bitcoin Core"
+		yecho " (version number ${VER} doesn't fit pattern)."
+		yecho "See: $DLDIR_URL"
+		yecho -n "Download the latest Linux ${ARCH_BITS}-bit gzipped tar archive, place it in"
+		yecho " the directory '$(pwd)' and restart the script."
+		die
 	fi
-
+}
+function unpack_and_install_bitcoind {
+	[ "$1" ] || die "You must specify an install prefix"
+	INSTALL_PREFIX=${1%/}
 	gmsg 'Unpacking and installing Bitcoin Core'
 	tar xzf $ARCHIVE || {
 		rm -f $ARCHIVE
 		ymsg 'Archive could not be unpacked, so it was deleted.  Exiting.'; die
 	}
-	exec_or_die "cp -v bitcoin-$VER/bin/bitcoin{d,-cli} $CHROOT_DIR/usr/local/bin"
-	exec_or_die "rm -r bitcoin-$VER"
+	exec_or_die "cp -vf bitcoin-$VER/bin/bitcoin{d,-cli} $INSTALL_PREFIX/usr/local/bin"
+	exec_or_die "rm -rf bitcoin-$VER"
+}
+function chroot_install_bitcoind_version() {
+	[ "$BITCOIND_VERSION" -a "$BITCOIND_CHKSUM" ] || {
+		die '$BITCOIND_VERSION or $BITCOIND_CHKSUM not set'
+	}
+	get_bitcoind_dl_url $BITCOIND_VERSION # sets DLDIR_URL, BITCOIND_URL, VER, ARCHIVE
+	retrieve_bitcoind
+	unpack_and_install_bitcoind '/'
+}
+function install_bitcoind() {
+	depends 'location=chroot' && return
+	get_bitcoind_dl_url 'latest' # sets DLDIR_URL, BITCOIND_URL, VER, ARCHIVE
+	retrieve_bitcoind
+	unpack_and_install_bitcoind $CHROOT_DIR
 }
 # function install_mmgen() {
 # 	dbecho "==> $FUNCNAME($@)"
@@ -1299,7 +1323,7 @@ menuentry \"\${desc} (text mode) \${passwd_info}\" \${classinfo} {
 # }
 	[ "$VERBOSE" ] && echo "$TEXT"
 	echo "$TEXT" > "$USB_MNT_DIR/boot/grub/grub.cfg"
-	echo "$TEXT" > "$USB_MNT_DIR/boot/grub/grub.cfg.bak"
+	echo "$TEXT" > "$USB_MNT_DIR/boot/grub/grub.cfg.mmgen.bak"
 }
 function usb_pre_initramfs() {
 	depends 'location=usb' mount_root mount_boot_usb && return; usb_install $FUNCNAME
@@ -1506,7 +1530,7 @@ function setup_sh_usb_install_homedir() {
 	su - $USER -c "$GIT config --global user.name 'MMGenLive User'"
 	su - $USER -c "$GIT config --global core.pager 'less -R'"
 
-	LINK_DIRS='bin scripts'
+	LINK_DIRS='bin scripts Desktop'
 	msg "Linking Git repository dirs to home directory: $LINK_DIRS"
 	exec_or_die "su - $USER -c 'rm -rf $LINK_DIRS'"
 	exec_or_die "su - $USER -c 'for i in $LINK_DIRS; do ln -s $GIT_DIR/$PROJ_NAME/home.mmgen/\$i; done'"

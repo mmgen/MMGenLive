@@ -1,5 +1,7 @@
 #!/bin/bash
 
+ARGV=$@ GB=1000000000 MIN_DISK_SIZE=300
+
 if [ "$EUID" == 0 ]; then
 	if [ "$1" == '--self-called' ]; then
 		shift
@@ -8,30 +10,30 @@ if [ "$EUID" == 0 ]; then
 	fi
 fi
 
-PROGNAME=`basename $0`
-PROJ_NAME='NodeSetup'
+PROGNAME=`basename $0` PROJ_NAME='NodeSetup'
 
-while getopts h OPT
+while getopts hm: OPT
 do
 	case "$OPT" in
 	h)  printf "  %-16s set up a Bitcoin Core node for a MMGen system\n" "${PROGNAME^^}:"
 		echo   "  USAGE:           $PROGNAME"
-		echo   "  OPTIONS:   '-h'  Print this help message"
+		echo   "  OPTIONS:   '-h'   Print this help message"
+		echo   "             '-m n' Specify a minimum disk size of 'n' GB (default: $MIN_DISK_SIZE)"
 		exit ;;
+	m)  [ "$OPTARG" -gt 0 ] || { echo "'$OPTARG': invalid disk size parameter"; exit; }
+		MIN_DISK_SIZE=$OPTARG ;;
 	*)  exit ;;
 	esac
 done
 
 shift $((OPTIND-1))
 
-. ~/scripts/include/functions.sh
+. ~mmgen/scripts/include/functions.sh
 
 function search_for_disk() {
-	GB=1000000000
-	MIN_DISK_SIZE=300
 	gmsg "Searching for hard drive larger than $MIN_DISK_SIZE GB"
 	DISK_INFO=$(lsblk -b -o NAME,SIZE,TYPE | grep disk | awk '{ print $1, $2  }')
-	MIN=$((MIN_DISK_SIZE*GB)) 
+	MIN=$((MIN_DISK_SIZE*GB))
 #	MIN=1
 	LARGE_DISKS=$(echo "$DISK_INFO" | (
 			while read a b; do
@@ -61,7 +63,7 @@ function search_for_disk() {
 }
 
 function check_disk() {
-	if [ "$(lsblk -n ${1}2 -o LABEL,FSTYPE)" == "BLOCKCHAIN ext4" ]; then
+	if [ "$(lsblk -n ${1}2 -o LABEL,FSTYPE 2>/dev/null)" == "BLOCKCHAIN ext4" ]; then
 		echo 'Existing MMGenLive installation detected.'
 		echo -n 'Use existing installation? (Y/n): '; read
 		echo "$REPLY" | egrep '^(y|Y||)$' && return 2
@@ -160,22 +162,28 @@ function create_twallet() {
 MMGEN_DATA_DIR="$HOME/.mmgen"
 HOME_BITCOIN_DATA_DIR="$HOME/.bitcoin"
 BACKUP_BITCOIN_DATA_DIR="$HOME/.bitcoin.old"
-function copy_and_link_twallet() {
+function create_home_data_dir() {
+	# remove any existing link
+	[ -L $HOME_BITCOIN_DATA_DIR ] && exec_or_die "rm $HOME_BITCOIN_DATA_DIR"
 
-	echo "Copying tracking wallet to '$MMGEN_DATA_DIR'"
-	exec_or_die "mkdir -p $MMGEN_DATA_DIR" 
-	# prompt before overwrite
-	exec_or_die "/bin/cp -i $TMP_DATA_DIR/$TW_FILE $MMGEN_DATA_DIR"
-
-	if [ -d $HOME_BITCOIN_DATA_DIR ]; then
+	# move any existing directory
+	[ -d $HOME_BITCOIN_DATA_DIR ] && {
 		echo "Moving old bitcoin data directory"
 		exec_or_die "mv -f $HOME_BITCOIN_DATA_DIR $BACKUP_BITCOIN_DATA_DIR"
-	fi
-
-	[ -e $HOME_BITCOIN_DATA_DIR ] && exec_or_die "rm $HOME_BITCOIN_DATA_DIR"
+	}
 
 	echo "Linking '$DATA_DIR' to '$HOME_BITCOIN_DATA_DIR'"
 	exec_or_die "(cd && ln -s $DATA_DIR $HOME_BITCOIN_DATA_DIR)"
+
+	# copy any existing bitcoin.conf
+	cp $BACKUP_BITCOIN_DATA_DIR/bitcoin.conf $HOME_BITCOIN_DATA_DIR 2>/dev/null
+}
+function copy_and_link_twallet() {
+
+	echo "Copying tracking wallet to '$MMGEN_DATA_DIR'"
+	exec_or_die "mkdir -p $MMGEN_DATA_DIR"
+	# prompt before overwrite
+	exec_or_die "/bin/cp -i $TMP_DATA_DIR/$TW_FILE $MMGEN_DATA_DIR"
 
 	echo "Linking '$MMGEN_DATA_DIR/$TW_FILE' to '$HOME_BITCOIN_DATA_DIR'"
 	exec_or_die "(cd $HOME_BITCOIN_DATA_DIR && ln -sf $MMGEN_DATA_DIR/$TW_FILE)"
@@ -204,14 +212,15 @@ function do_setup_root() {
 }
 function do_setup_user() {
 	bmsg 'Entering user setup'
-	create_twallet
-	copy_and_link_twallet
+	create_home_data_dir
+#	create_twallet
+#	copy_and_link_twallet
 	bmsg "Setup is finished!\nFor instructions on starting your node, see 'README.fullnode'"
 }
 if [ "$EUID" == 0 ]; then
 	bmsg 'Entering admin setup'
 	do_setup_root
 else
-	sudo $0 --self-called $@ && do_setup_user
+	eval "sudo $0 --self-called $ARGV && do_setup_user"
 #	gmsg 'Press ENTER to exit'; read
 fi

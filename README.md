@@ -9,13 +9,14 @@ choose to use the MMGen wallet or not.***
 MMGenLive gives you, out of the box:
 
 * A completely installed, upgradeable and configurable Ubuntu Linux system
+* The MMGen wallet system and documentation, also upgradeable
+* The latest Bitcoin Core
+* Automated scripts that make setting up and running your node easy
 * Full disk encryption (entire filesystem is read/write)
-* The MMGen wallet system and documentation
-* The latest Bitcoin Core and automated scripts that will have your full node
-  up and running in a matter of minutes
+* Full Tor support for both running the node and upgrading the system
 
-MMGenLive can be used both as an offline signing wallet and as an online
-tracking/transacting wallet with a full or pruned blockchain.
+MMGenLive can be used as both an **offline signing wallet** and an **online
+tracking/transacting wallet** with a full or pruned blockchain.
 
 ### There are two ways to install and run MMGenLive:
 
