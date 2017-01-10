@@ -1,7 +1,7 @@
 #!/bin/bash
 #:REV: 0.0.7a
-#:DESC: mmlive-node-setup disk size check
-#:DESC: run mmgen-test with -O option
+#:DESC: Check for disk size in 'mmlive-node-setup'
+#:DESC: Run test suite with '-O' option in 'mmgen-test'
 
 PATCH1='--- bin/mmlive-node-setup.orig	2016-12-18 18:57:06.845667863 +0000
 +++ bin/mmlive-node-setup	2016-12-18 15:35:10.492000000 +0000
@@ -20,7 +20,7 @@ PATCH2='--- mmgen-test	2016-12-18 15:35:56.908000000 +0000
 +++ mmgen-test.orig	2016-12-18 19:10:21.903166294 +0000
 @@ -21,4 +21,4 @@
  }
- 
+
  cd ~/src/mmgen-*
 -test/test.py -Os
 +test/test.py -s'

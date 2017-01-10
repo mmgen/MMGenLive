@@ -1,8 +1,8 @@
 #!/bin/bash
 #:REV: 0.0.7b
-#:DESC: git-config user,email
-#:DESC: clone MMGenLive repo
-#:DESC: make bin,doc,scripts directories symlinks
+#:DESC: Add user and email to git config
+#:DESC: Clone MMGenLive repo
+#:DESC: Make bin, doc and scripts directories symlinks
 
 set -e
 sudo apt-get update

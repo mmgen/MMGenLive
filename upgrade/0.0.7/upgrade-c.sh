@@ -1,7 +1,7 @@
 #!/bin/bash
 #:REV: 0.0.7c
-#:DESC: git-config core.pager 
-#:DESC: edit privoxy/config to forward socks
+#:DESC: Add core.pager to git config
+#:DESC: Edit /etc/privoxy/config to forward to Socks proxy
 
 set -e
 

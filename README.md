@@ -3,9 +3,6 @@
 MMGenLive is a fully functional Linux system on a USB stick with the [MMGen
 online/offline Bitcoin wallet][6], Bitcoin Core and related programs preinstalled.
 
-***MMGenLive is also an easy way to set up and run a full node, whether you
-choose to use the MMGen wallet or not.***
-
 MMGenLive gives you, out of the box:
 
 * A completely installed, upgradeable and configurable Ubuntu Linux system
@@ -17,6 +14,9 @@ MMGenLive gives you, out of the box:
 
 MMGenLive can be used as both an **offline signing wallet** and an **online
 tracking/transacting wallet** with a full or pruned blockchain.
+
+***MMGenLive is also an easy way to set up and run a full node, whether you
+choose to use the MMGen wallet or not.***
 
 ### There are two ways to install and run MMGenLive:
 
@@ -54,23 +54,28 @@ tracking/transacting wallet** with a full or pruned blockchain.
 
 * Clone the mmgen and MMGenLive repositories:
 
-            git clone https://github.com/mmgen/mmgen.git
-            git clone https://github.com/mmgen/MMGenLive.git
-            cd MMGenLive
+			git clone https://github.com/mmgen/mmgen.git
+			cd mmgen && git checkout -b mm stable_linux
+			cd ..
+			git clone https://github.com/mmgen/MMGenLive.git
+			cd MMGenLive && git checkout -b mm stable
 
 * Download the [latest extras files][2] and place them in the MMGenLive
   repository root.
 
 * Build and install the MMGenLive system:
 
-            sudo ./build_system.sh
+			sudo ./build_system.sh
 
-*The automated shell script is under constant development.  Tagged versions
-should work but current master commits may not.  You've been warned.*
+### Upgrading your installation:
 
-**View the [MMGenLive internal documentation][8]**
+To avoid the need to download new boot images as improvements are made and
+features added to MMGenLive, a **revision and upgrade system** was introduced
+with version 0.0.7.  To bring your system up-to-date with the latest revisions,
+type 'mmlive-upgrade' from within your running MMGenLive installation.  A list
+of the latest revisions may be found in the **[ChangeLog][9].**
 
-**View the [ChangeLog][9]**
+For more detailed information, see the **[MMGenLive internal documentation][8].**
 
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

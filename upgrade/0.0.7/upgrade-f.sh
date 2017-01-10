@@ -1,8 +1,8 @@
 #!/bin/bash
 #:REV: 0.0.7f
-#:DESC: install unzip and pycurl packages
-#:DESC: upgrade MMGen to commit eb6f7ef195bd391174bd6563d0c85b1f1934873f
-#:DESC: install node-tools
+#:DESC: Install unzip and pycurl packages
+#:DESC: Upgrade MMGen to commit eb6f7e
+#:DESC: Install mmgen-node-tools
 
 set -e
 

@@ -1,8 +1,8 @@
 #!/bin/bash
 #:REV: 0.0.7g
-#:DESC: make ~/Desktop a symlink
-#:DESC: install alsa-utils
-#:DESC: this rev enables the ticker and alarm clock icons
+#:DESC: Add '~/Desktop' to repo, make it a symlink
+#:DESC: Install alsa-utils
+#:DESC: Enable ticker and alarm clock, create their icons
 
 set -e
 

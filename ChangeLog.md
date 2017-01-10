@@ -1,39 +1,39 @@
 ## ChangeLog
 
 ### v0.0.7i
-+ rewrite of 'update-grub-cfg-kver.sh'
++ Rewrite kernel version auto-update script
 
 ### v0.0.7h
-+ install Bitcoin Core v0.13.2
++ Upgrade Bitcoin Core to version 0.13.2
 
 ### v0.0.7g
-+ make ~/Desktop a symlink
-+ install alsa-utils
-+ this rev enables the ticker and alarm clock icons
++ Add '~/Desktop' to repo, make it a symlink
++ Install alsa-utils
++ Enable ticker and alarm clock, create their icons
 
 ### v0.0.7f
-+ install unzip and pycurl packages
-+ upgrade MMGen to commit eb6f7ef195bd391174bd6563d0c85b1f1934873f
-+ install node-tools
++ Install unzip and pycurl packages
++ Upgrade MMGen to commit eb6f7e
++ Install mmgen-node-tools
 
 ### v0.0.7e
-+ add env vars http_proxy,etc. to /etc/sudoers
-+ install kramdown and elinks
-+ generate documentation
++ Add environment vars http_proxy, etc. to '/etc/sudoers'
++ Install kramdown and elinks
++ Auto-generate documentation if wiki has changed
 
 ### v0.0.7d
-+ edit grub.cfg after kernel upgrade, run from rc.local.shutdown
-+ put all grub-* packages on hold
++ Auto-update kver in 'grub.cfg' at shutdown if kernel version has changed
++ Put grub-* packages on hold
 
 ### v0.0.7c
-+ git-config core.pager 
-+ edit privoxy/config to forward socks
++ Add core.pager to git config
++ Edit /etc/privoxy/config to forward to Socks proxy
 
 ### v0.0.7b
-+ git-config user,email
-+ clone MMGenLive repo
-+ make bin,doc,scripts directories symlinks
++ Add user and email to git config
++ Clone MMGenLive repo
++ Make bin, doc and scripts directories symlinks
 
 ### v0.0.7a
-+ mmlive-node-setup disk size check
-+ run mmgen-test with -O option
++ Check for disk size in 'mmlive-node-setup'
++ Run test suite with '-O' option in 'mmgen-test'

@@ -1,7 +1,7 @@
 #!/bin/bash
 #:REV: 0.0.7d
-#:DESC: edit grub.cfg after kernel upgrade, run from rc.local.shutdown
-#:DESC: put all grub-* packages on hold
+#:DESC: Auto-update kver in 'grub.cfg' at shutdown if kernel version has changed
+#:DESC: Put grub-* packages on hold
 
 set -e
 

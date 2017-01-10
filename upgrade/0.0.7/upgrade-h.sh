@@ -1,6 +1,6 @@
 #!/bin/bash
 #:REV: 0.0.7h
-#:DESC: install Bitcoin Core v0.13.2
+#:DESC: Upgrade Bitcoin Core to version 0.13.2
 
 VERSION='0.13.2'
 CHKSUM='29215a7fe7430224da52fc257686d2d387546eb8acd573a949128696e8761149'

@@ -1,8 +1,8 @@
 #!/bin/bash
 #:REV: 0.0.7e
-#:DESC: add env vars http_proxy,etc. to /etc/sudoers
-#:DESC: install kramdown and elinks
-#:DESC: generate documentation
+#:DESC: Add environment vars http_proxy, etc. to '/etc/sudoers'
+#:DESC: Install kramdown and elinks
+#:DESC: Auto-generate documentation if wiki has changed
 
 set -e
 

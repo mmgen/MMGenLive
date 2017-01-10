@@ -1,6 +1,6 @@
 #!/bin/bash
 #:REV: 0.0.7i
-#:DESC: rewrite of 'update-grub-cfg-kver.sh'
+#:DESC: Rewrite kernel version auto-update script
 
 set -e
 
