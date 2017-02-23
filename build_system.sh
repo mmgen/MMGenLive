@@ -126,9 +126,9 @@ for i in ${!DESCS[@]}; do
 done
 TARGET='build'
 
-CURL='curl' GIT='git' APT_GET='apt-get' LYNX='lynx'
+CURL='curl' GIT='git' APT_GET='apt-get' LYNX='lynx' PIP='pip' DEBOOTSTRAP='debootstrap'
 
-while getopts haAbBcCdDGiLMoP:r:sSuvxX OPT
+while getopts haAbBcCdDGiLMop:P:r:sSuvxX OPT
 do
 	case "$OPT" in
 	h)  printf "  %-16s Build an MMGenLive system\n" "${PROGNAME^^}:"
@@ -147,6 +147,7 @@ do
 		echo   "           '-L'    Don't backup/restore '/var/lib/apt/lists' dir"
 		echo   "           '-M'    Skip MMGen test"
 		echo   "           '-o'    Build image on loop device instead of USB stick (doesn't work)"
+		echo   "           '-p p'  Use proxy 'p' for 'apt-get' (overrides '-P')"
 		echo   "           '-P p'  Connect via proxy 'p' (protocol://host:port)"
 		echo   "           '-r r'  Install Ubuntu/Debian release 'r' (choices: ${!RELEASES[*]})"
 		echo   "           '-s'    Simulate, don't execute, shell commands"
@@ -181,10 +182,17 @@ do
 	L)  NO_APT_LISTS_BACKUP=1 ;;
 	M)  SKIP_MMGEN_TEST=1 ;;
 	o)  LOOP_INSTALL=1 ;;
+	p)  APT_GET_PROXY=1
+		APT_GET="https_proxy=$OPTARG http_proxy=$OPTARG apt-get"
+		DEBOOTSTRAP="https_proxy=$OPTARG http_proxy=$OPTARG debootstrap" ;;
 	P)  PROXY=1
 		CURL="curl -x $OPTARG"
 		GIT="all_proxy=$OPTARG git"
-		APT_GET="https_proxy=$OPTARG http_proxy=$OPTARG apt-get"
+		[ "$APT_GET_PROXY" ] || {
+			APT_GET="https_proxy=$OPTARG http_proxy=$OPTARG apt-get"
+			DEBOOTSTRAP="https_proxy=$OPTARG http_proxy=$OPTARG debootstrap"
+		}
+		PIP="pip --proxy $OPTARG"
 		LYNX="https_proxy=$OPTARG http_proxy=$OPTARG lynx" ;;
 	r)  RELEASE=$OPTARG ;;
 	s)  SIMULATE=1 ;;
@@ -512,7 +520,7 @@ function chroot_install_mmgen_dependencies() {
 	apt_get_install_chk 'gcc libgmp-dev make python-pip python-dev python-pexpect python-ecdsa python-scrypt python-setuptools python-wheel libssl-dev alsa-utils elinks ruby-kramdown lynx unzip curl python-pycurl git libpcre3-dev' '--no-install-recommends'
 
 	gmsg 'Installing the Python Cryptography Toolkit'
-	exec_or_die 'pip install pycrypto'
+	exec_or_die "$PIP install pycrypto"
 }
 function chroot_install_vanitygen() {
 	exec_or_die 'cd /setup'
@@ -539,33 +547,33 @@ function chroot_cleanup_mmgen_builds() {
 	exec_or_die 'rm -rf bitcoin-* mmgen-* pexpect-* vanitygen secp256k1'
 	exec_or_die 'rm -rf ~mmgen/.bitcoin'
 }
+function chroot_install_mmgen_user() {
+	echo "Removing old MMGen installation in home directory"
+	exec_or_die "su - $USER -c 'rm -rf src && mkdir src'"
+
+	gecho "Unpacking MMGen Python archive in user ~${USER}/src"
+	AR=$MMGEN_ARCHIVE_NAME AR_UNPACK='tar -xzf'
+	[ "$MMGEN_ZIP_ARCHIVE_NAME" ] && AR=$MMGEN_ZIP_ARCHIVE_NAME AR_UNPACK='unzip'
+	[ "$AR" ] || die "No archive found"
+	exec_or_die "chmod 644 /setup/$AR"
+	exec_or_die "su - $USER -c 'cd src && $AR_UNPACK /setup/$AR'"
+
+	gecho "Building secp256k1 extension module in ~${USER}/src"
+	exec_or_die "su - $USER -c 'cd src/mmgen-* && ./setup.py build_ext'"
+
+	gecho "Installing MMGen on system"
+ 	exec_or_die "(cd ~$USER/src/mmgen-* && python ./setup.py --quiet install)"
+ 	exec_or_die "(cd ~$USER/src/mmgen-* && rm -rf build)"
+
+	echo "Removing MMGen archive"
+ 	exec_or_die "rm -f /setup/$AR"
+}
 function chroot_install_mmgen_user_at_commit() {
 	[ "$MMGEN_COMMIT" ] || die '$MMGEN_COMMIT not set'
 	gmsg "Downloading MMGen zip archive at commit '$MMGEN_COMMIT'"
 	MMGEN_ZIP_ARCHIVE_NAME="mmgen-$MMGEN_COMMIT.zip"
 	exec_or_die "$CURL -L -o /setup/$MMGEN_ZIP_ARCHIVE_NAME $MMGEN_REPO_PATH/archive/$MMGEN_COMMIT.zip"
 	chroot_install_mmgen_user
-}
-function chroot_install_mmgen_user() {
-	gmsg "Removing old MMGen installation in home directory"
-	exec_or_die "su - $USER -c 'rm -rf src && mkdir src'"
-
-	gmsg "Unpacking MMGen Python archive in user ~${USER}/src"
-	AR=$MMGEN_ARCHIVE_NAME AR_PROG='tar -xzf'
-	[ "$MMGEN_ZIP_ARCHIVE_NAME" ] && AR=$MMGEN_ZIP_ARCHIVE_NAME AR_PROG='unzip'
-	[ "$AR" ] || die "No archive found"
-	exec_or_die "chmod 644 /setup/$AR"
-	exec_or_die "su - $USER -c 'cd src && $AR_PROG /setup/$AR'"
-
-	gmsg "Building secp256k1 extension module in ~${USER}/src"
-	exec_or_die "su - $USER -c 'cd src/mmgen-* && ./setup.py build_ext'"
-
-	gmsg "Installing MMGen on system"
- 	exec_or_die "(cd ~$USER/src/mmgen-* && python ./setup.py --quiet install)"
- 	exec_or_die "(cd ~$USER/src/mmgen-* && rm -rf build)"
-
-	gmsg "Removing MMGen archive"
- 	exec_or_die "rm -f /setup/$AR"
 }
 function chroot_setup_user() {
 	grep -q "^$USER:" /etc/passwd || exec_or_die "useradd -s /bin/bash -m $USER"
@@ -1523,8 +1531,10 @@ function setup_sh_usb_install_homedir() {
 	for repo in $repos; do
 		exec_or_die "su - $USER -c 'cd $GIT_DIR && $GIT clone $url_base/$repo.git'"
 	done
-	exec_or_die 'mv -v mmgen.wiki mmgen-wiki'
-	exec_or_die 'mv -v MMGenLive.wiki mmlive-wiki'
+	exec_or_die 'mv mmgen.wiki mmgen-wiki'
+	exec_or_die 'mv MMGenLive.wiki mmlive-wiki'
+	exec_or_die 'mv mmgen-node-tools node-tools'
+	exec_or_die "(cd $GIT_DIR/node-tools && python ./setup.py install)"
 
 	su - $USER -c "$GIT config --global user.email 'mmlive@nowhere.com'"
 	su - $USER -c "$GIT config --global user.name 'MMGenLive User'"
@@ -1769,7 +1779,7 @@ function build_base() {
 		exec_or_die "tar xzf $BASE_SYSTEM_ARCHIVE"
 	else
 		gmsg "Installing '$RELEASE' from '$REPO_URL'"
-		exec_or_die "debootstrap $RELEASE $CHROOT_DIR"
+		exec_or_die "$DEBOOTSTRAP $RELEASE $CHROOT_DIR"
 		gmsg 'Deleting package files'
 		exec_or_die "chroot $CHROOT_DIR apt-get clean"
 		if [ "$BACKUP_BASE_SYSTEM" ]; then

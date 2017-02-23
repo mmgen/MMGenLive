@@ -80,9 +80,11 @@ For more detailed information, see the **[MMGenLive internal documentation][8].*
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 [**Forum**][4] |
+[Reddit][0] |
 [PGP Public Key][5] |
 Donate: 15TLdmi5NYLdqmtCqczUs5pBPkJDXRs83w
 
+[0]: https://www.reddit.com/user/mmgen-py
 [1]: https://www.raspberrypi.org/documentation/installation/installing-images/windows.md
 [2]: https://github.com/mmgen/MMGenLive/releases/tag/extras-v0.0.7
 [3]: https://github.com/mmgen/MMGenLive/releases/tag/bootimage-v0.0.7
