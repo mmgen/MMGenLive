@@ -1,5 +1,8 @@
 ## ChangeLog
 
+### v0.0.7j
++ Upgrade Bitcoin Core to version 0.14.0
+
 ### v0.0.7i
 + Rewrite kernel version auto-update script
 
