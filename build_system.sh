@@ -832,12 +832,13 @@ function get_bitcoind_dl_url { # sets DLDIR_URL, BITCOIND_URL, VER, ARCHIVE
 function retrieve_bitcoind { # retrieves to current directory
 	if echo "$VER" | egrep -q '^[0-9]+\.[0-9]+\.[0-9]+$'; then
 		echo "Latest version is $VER"
-		if [ -e "$ARCHIVE" ]; then
-			gecho "Found locally-stored archive for version $VER"
-		else
-			gecho "Retrieving Bitcoin Core $VER from '$DLDIR_URL'"
-			exec_or_die "$CURL -O $BITCOIND_URL"
-		fi
+# 		if [ -e "$ARCHIVE" ]; then
+# 			gecho "Found locally-stored archive for version $VER"
+# 		else
+		# Could have partial DL, so always attempt DL
+		gecho "Retrieving Bitcoin Core $VER from '$DLDIR_URL'"
+		exec_or_die "$CURL -C - -O $BITCOIND_URL"
+# 		fi
 		# checksums: https://github.com/bitcoin-core/gitian.sigs
 		if [ "$BITCOIND_CHKSUM" ]; then
 			CHK=($(sha256sum $ARCHIVE))
