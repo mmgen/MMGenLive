@@ -1,5 +1,8 @@
 ## ChangeLog
 
+### v0.0.7k
++ Upgrade Bitcoin Core to version 0.14.1
+
 ### v0.0.7j
 + Upgrade Bitcoin Core to version 0.14.0
 

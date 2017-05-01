@@ -741,6 +741,7 @@ GRUB_TERMINAL=gfxterm
 GRUB_GFXMODE=640x480
 GRUB_ENABLE_CRYPTODISK="y"'
 
+	# The variable MUST be exported!
 	cf_write 'do_hdr' 'initrd_cryptsetup' 'export CRYPTSETUP=y'
 
 #	cf_edit 'do_hdr' 'rc_local' '^exit 0\s*$' '# exit 0' # won't touch our 'exit 0' below
@@ -829,21 +830,30 @@ function get_bitcoind_dl_url { # sets DLDIR_URL, BITCOIND_URL, VER, ARCHIVE
 	BITCOIND_URL="${URL_PATH%/}/$ARCHIVE"
 	yecho "Need archive '$ARCHIVE'"
 }
+function check_file_chksum {
+	FILE=$1 CHKSUM=$2
+	CHK=($(sha256sum $FILE))
+	if [ "$CHK" == "$CHKSUM" ]; then
+		echo "Checksum of file '$FILE' OK"; return 0
+	else
+		recho "Bad checksum for file '$FILE'"; return 1
+	fi
+}
 function retrieve_bitcoind { # retrieves to current directory
 	if echo "$VER" | egrep -q '^[0-9]+\.[0-9]+\.[0-9]+$'; then
 		echo "Latest version is $VER"
-# 		if [ -e "$ARCHIVE" ]; then
-# 			gecho "Found locally-stored archive for version $VER"
-# 		else
-		# Could have partial DL, so always attempt DL
-		gecho "Retrieving Bitcoin Core $VER from '$DLDIR_URL'"
-		exec_or_die "$CURL -C - -O $BITCOIND_URL"
-# 		fi
+		# Could have partial DL, so check sha256 sum
+ 		if [ -e "$ARCHIVE" -a "$BITCOIND_CHKSUM" ] && check_file_chksum $ARCHIVE $BITCOIND_CHKSUM;then
+ 			gecho "Found locally-stored archive for version $VER"
+ 		elif [ -e "$ARCHIVE" -a -z "$BITCOIND_CHKSUM" ]; then
+ 			gecho "Found locally-stored archive for version $VER"
+ 		else
+			gecho "Retrieving Bitcoin Core $VER from '$DLDIR_URL'"
+			exec_or_die "$CURL -O $BITCOIND_URL"
+ 		fi
 		# checksums: https://github.com/bitcoin-core/gitian.sigs
 		if [ "$BITCOIND_CHKSUM" ]; then
-			CHK=($(sha256sum $ARCHIVE))
-			[ "$CHK" == "$BITCOIND_CHKSUM" ] || die "Checksum of archive ($CHK) doesn't match"
-			echo 'Archive checksum OK'
+ 			check_file_chksum $ARCHIVE $BITCOIND_CHKSUM || die 'Aborting on bad checksum'
 		else
 			exec_or_die "sha256sum $ARCHIVE"
 			kmsg 'Please verify sha256 sum above from a trusted source before continuing'
