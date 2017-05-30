@@ -19,5 +19,6 @@ function install_bitcoind {
 }
 
 bitcoind --version | head -n1 | grep -q 'v0\.14\.0$' || install_bitcoind
+install_bitcoind
 
 exit 0

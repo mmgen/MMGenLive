@@ -549,7 +549,7 @@ function chroot_cleanup_mmgen_builds() {
 }
 function chroot_install_mmgen_user() {
 	echo "Removing old MMGen installation in home directory"
-	exec_or_die "su - $USER -c 'rm -rf src && mkdir src'"
+	exec_or_die "(cd /home/$USER && rm -rf src/mmgen-* && mkdir -p src)"
 
 	gecho "Unpacking MMGen Python archive in user ~${USER}/src"
 	AR=$MMGEN_ARCHIVE_NAME AR_UNPACK='tar -xzf'
