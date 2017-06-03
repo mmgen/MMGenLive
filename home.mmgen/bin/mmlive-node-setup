@@ -10,21 +10,45 @@ if [ "$EUID" == 0 ]; then
 	fi
 fi
 
-PROGNAME=`basename $0` PROJ_NAME='NodeSetup'
+HD_INSTALL_MSG="
+Though your hard drive is now set up to hold the blockchain, the MMGen
+system itself has not yet been installed on your hard drive.  You may
+skip the hard drive install and just run MMGen on the removable media if you
+wish.  You can always do the hard drive install later by running
+'mmlive-node-setup' with the '-d' switch.
 
-while getopts hm: OPT
+Install MMGen on the hard drive now? (Enter to continue, Ctrl-C to exit): "
+PROGNAME=`basename $0` PROJ_NAME='NodeSetup'
+PASSWD='mmgen'
+
+while getopts hdm:p:T OPT
 do
 	case "$OPT" in
 	h)  printf "  %-16s set up a Bitcoin Core node for a MMGen system\n" "${PROGNAME^^}:"
 		echo   "  USAGE:           $PROGNAME"
-		echo   "  OPTIONS:   '-h'   Print this help message"
-		echo   "             '-m n' Specify a minimum disk size of 'n' GB (default: $MIN_DISK_SIZE)"
+		echo   "  OPTIONS:"
+		echo   "    '-h'   Print this help message"
+		echo   "    '-m n' Specify a minimum disk size of 'n' GB (default: $MIN_DISK_SIZE)"
+		echo   "    '-d'   Install system on hard drive (use only after mmlive-node-setup has been run once)"
+		echo   "    '-p h' Connect via proxy 'p' (protocol://host:port)"
+		echo   "    '-T'   Connect via Tor (through privoxy)"
 		exit ;;
+	d)  HDD=1 ;;
 	m)  [ "$OPTARG" -gt 0 ] || { echo "'$OPTARG': invalid disk size parameter"; exit; }
 		MIN_DISK_SIZE=$OPTARG ;;
+	p)  PROXY=$OPTARG ;;
+	T)  TOR=' to Tor' PROXY='http://localhost:8118' ;;
 	*)  exit ;;
 	esac
 done
+
+if [ "$PROXY" ]; then
+	export http_proxy=$PROXY
+	export https_proxy=$PROXY
+	export all_proxy=$PROXY
+	export HTTP_PROXY=$PROXY
+	export HTTPS_PROXY=$PROXY
+fi
 
 shift $((OPTIND-1))
 
@@ -63,16 +87,19 @@ function search_for_disk() {
 }
 
 function check_disk() {
-	if [ "$(lsblk -n ${1}2 -o LABEL,FSTYPE 2>/dev/null)" == "BLOCKCHAIN ext4" ]; then
+	if check_installed_and_set_hdinstall_vars; then
 		echo 'Existing MMGenLive installation detected.'
-		echo -n 'Use existing installation? (Y/n): '; read
+		umount_vfs
+		umount_new_root
+		umount_live_root
+		echo -n 'Skip repartitioning and reinstall on existing partitions? (Y/n): '; read
 		echo "$REPLY" | egrep '^(y|Y||)$' && return 2
 	fi
 	if lsblk -n $1 | grep -q part; then
 		echo 'Disk has existing partitions! All data on the disk will be destroyed.'
 		echo -n 'Proceed anyway? (y/N): '; read
 		echo "$REPLY" | egrep '^(y|Y)$' && return 0
-		return 1
+		exit 1
 	else
 		echo 'Disk has no partitions and appears to empty.'
 		echo -n 'Proceed with disk partition? (Y/n): '; read
@@ -83,31 +110,46 @@ function check_disk() {
 
 function partition_disk() {
 
-	BS_SIZE=4 BOOTFS_SIZE=250
+	BS_SIZE=4 BOOTFS_SIZE=250 ROOTFS_SIZE=8000
 	DISK_SIZE=$(lsblk -n -o SIZE -b $1 | head -n1) DISK_SIZE=$((DISK_SIZE/1024/1024))
-	MAIN_SIZE=$((DISK_SIZE-BS_SIZE-BOOTFS_SIZE))
+	BLKCHN_SIZE=$((DISK_SIZE-BS_SIZE-BOOTFS_SIZE-ROOTFS_SIZE-1))
 
 	gmsg 'Creating gpt disk label'
 	exec_or_die "parted -s $1 mklabel gpt"
 
 	gmsg "Creating $BOOTFS_SIZE MiB boot partition"
-	exec_or_die "parted -s $1 mkpart fat32 ${BS_SIZE}MiB $((BS_SIZE+BOOTFS_SIZE))MiB"
+	START=$BS_SIZE
+	exec_or_die "parted -s $1 mkpart fat32 ${START}MiB $((START+BOOTFS_SIZE))MiB"
 	exec_or_die "parted -s $1 set 1 boot on"
 
-	gmsg "Creating $MAIN_SIZE MiB main partition"
-	exec_or_die "parted -s $1 mkpart ext4 $((BS_SIZE+BOOTFS_SIZE))MiB ${MAIN_SIZE}MiB"
+	gmsg "Creating $ROOTFS_SIZE MiB system partition"
+	START=$((BS_SIZE+BOOTFS_SIZE))
+	exec_or_die "parted -s $1 mkpart ext4 ${START}MiB $((START+ROOTFS_SIZE))MiB"
+
+	gmsg "Creating $BLKCHN_SIZE MiB blockchain partition"
+	START=$((BS_SIZE+BOOTFS_SIZE+ROOTFS_SIZE))
+	exec_or_die "parted -s $1 mkpart ext4 ${START}MiB $((START+BLKCHN_SIZE))MiB"
 
 	echo
 }
 
 function make_fs() {
+	gmsg 'Creating encrypted system partition'
+	exec_or_die "echo -n $PASSWD | cryptsetup luksFormat ${1}2 -"
+	msg "Opening encrypted system partition '${1}2'"
+	exec_or_die "echo $PASSWD | cryptsetup luksOpen ${1}2 foo"
+	gmsg 'Creating filesystem on encrypted system partition'
+	exec_or_die "mkfs.ext4 -q -L 'MMGEN_HD_ROOT' /dev/mapper/foo"
+	msg "Closing encrypted system partition '${1}2'"
+	exec_or_die "cryptsetup luksClose foo 2>/dev/null"
+
 	gmsg 'Creating filesystem on boot partition'
-	exec_or_die "mkfs.fat -F32 -n 'BOOT' ${1}1 2>/dev/null"
+	exec_or_die "mkfs.fat -F32 -n 'MMGEN_HBOOT' ${1}1 2>/dev/null"
 
 	umount $MOUNTPOINT 2>/dev/null # if automounted
 
-	gmsg 'Creating filesystem on main partition'
-	exec_or_die "mkfs.ext4 -q -L 'BLOCKCHAIN' ${1}2"
+	gmsg 'Creating filesystem on blockchain partition'
+	exec_or_die "mkfs.ext4 -q -L 'BLOCKCHAIN' ${1}3"
 
 	echo
 }
@@ -115,15 +157,17 @@ function make_fs() {
 MOUNTPOINT='/mnt/disk1'
 DATA_DIR="$MOUNTPOINT/bitcoin"
 USER='mmgen' GROUP='mmgen'
-function mount_fs() {
+function create_dirs_files_and_mount() {
 
 	gmsg "Creating mountpoint '$MOUNTPOINT' for main partition"
 	exec_or_die "mkdir -p $MOUNTPOINT"
 
-	if ! grep -q "$MOUNTPOINT" /etc/fstab; then
-		gmsg "Creating fstab entry for '$MOUNTPOINT'"
-		echo "${1}2 $MOUNTPOINT ext4 defaults 0 2" >> /etc/fstab
-	fi
+	gmsg "Creating fstab entry for '$MOUNTPOINT'"
+	ed /etc/fstab <<-EOF
+	g/${MOUNTPOINT////\\/}/d
+	wq
+	EOF
+	echo "${1}3 $MOUNTPOINT ext4 defaults 0 2" >> /etc/fstab
 
 	if ! mount | grep -q "$MOUNTPOINT"; then
 		gmsg "Mounting partition on '$MOUNTPOINT'"
@@ -190,24 +234,41 @@ function copy_and_link_twallet() {
 
 }
 function check_mounted() {
-	if mount | grep -q "^$1"; then
-		echo "Device '$1' has mounted partitions.  Cannot proceed."
-		return 1
-	else
-		return 0
-	fi
+	while true; do
+		MPTS=$(mount | grep "^$1" | awk '{print $3}' | tac)
+		if [ "$MPTS" ]; then
+			echo -n "Device '$1' has mounted partitions. Attempt to unmount? (Y/n): "; read
+			if echo "$REPLY" | egrep '^(y|Y||)$'; then
+				for m in $MPTS; do
+					umount $m
+					if mountpoint -q $m; then
+						echo "Unable to unmount '$MOUNTPOINT'.  Is your node running?"
+						return 1
+					fi
+				done
+				return 0
+			else
+				echo 'Aborting install at user request'
+				return 1
+			fi
+		else
+			return 0
+		fi
+	done
 }
 function do_setup_root() {
 	while true; do
 		search_for_disk
 		check_mounted $SELECTED_DISK || exit 1
-		check_disk $SELECTED_DISK && break
-		[ "$?" == 2 ] && { mount_fs $SELECTED_DISK; echo; exit 0; }  # 'use existing installation'
+		check_disk $SELECTED_DISK && {
+			partition_disk $SELECTED_DISK
+			make_fs $SELECTED_DISK
+			break
+		}
+		[ "$?" == 2 ] && break  # 'use existing installation'
 		echo
 	done
-	partition_disk $SELECTED_DISK
-	make_fs $SELECTED_DISK
-	mount_fs $SELECTED_DISK
+	create_dirs_files_and_mount $SELECTED_DISK
 	exit 0
 }
 function do_setup_user() {
@@ -217,10 +278,204 @@ function do_setup_user() {
 #	copy_and_link_twallet
 	bmsg "Setup is finished!\nFor instructions on starting your node, see 'README.fullnode'"
 }
+
+# Install on hard drive from here
+function copy_boot_files() {
+	exec_or_die "mountpoint -q /mnt/hd_root/boot"
+	bmsg 'Copying boot partition files'
+	exec_or_die "(cd /boot && rsync -av --exclude EFI --exclude grub * /mnt/hd_root/boot && bmsg 'Done copying')"
+}
+function mount_new_root() {
+	cd /
+	bmsg 'Mounting root partition'
+	mkdir -p /mnt/hd_root
+	msg "Opening encrypted system partition '/dev/$HD_ROOT'"
+	exec_or_die "echo $PASSWD | cryptsetup luksOpen /dev/$HD_ROOT foo -"
+	msg "Mounting encrypted system partition '/dev/$HD_ROOT'"
+	exec_or_die "mount /dev/mapper/foo /mnt/hd_root"
+}
+function mount_new_boot() {
+	bmsg 'Mounting boot partition'
+	exec_or_die "mount /dev/$HD_BOOT /mnt/hd_root/boot"
+}
+function umount_new_root() {
+	umount -l /mnt/hd_root/boot 2>/dev/null
+	sleep 1
+	umount /mnt/hd_root/boot 2>/dev/null
+ 	exec_or_die "if mountpoint -q /mnt/hd_root/boot; then false; else true; fi"
+	umount -l /mnt/hd_root 2>/dev/null
+	sleep 1
+	umount /mnt/hd_root 2>/dev/null
+ 	exec_or_die "if mountpoint -q /mnt/hd_root; then false; else true; fi"
+	sleep 2
+	msg "Closing encrypted system partition foo (/dev/$HD_ROOT)"
+	cryptsetup luksClose foo 2>/dev/null
+	exec_or_die "if cryptsetup status foo; then false; else true; fi"
+}
+function mount_live_root() {
+	bmsg 'Mounting live root filesystem to alternate mountpoint'
+	mkdir -p /mnt/usb_root
+	exec_or_die "mount /dev/mapper/root_fs /mnt/usb_root"
+}
+function umount_live_root() {
+	umount /mnt/usb_root 2>/dev/null
+ 	exec_or_die "if mountpoint -q /mnt/usb_root; then false; else true; fi"
+}
+function umount_vfs {
+	bmsg 'Unmounting virtual filesystems'
+	umount -l /mnt/hd_root/dev /mnt/hd_root/proc /mnt/hd_root/sys 2>/dev/null
+	umount /mnt/hd_root/dev /mnt/hd_root/proc /mnt/hd_root/sys 2>/dev/null
+ 	exec_or_die "if mountpoint -q /mnt/hd_root/dev; then false; else true; fi"
+ 	exec_or_die "if mountpoint -q /mnt/hd_root/proc; then false; else true; fi"
+ 	exec_or_die "if mountpoint -q /mnt/hd_root/sys; then false; else true; fi"
+}
+function mount_vfs {
+	bmsg 'Mounting virtual filesystems'
+ 	mount -o rbind /dev /mnt/hd_root/dev 2>/dev/null
+ 	mount -t proc proc /mnt/hd_root/proc 2>/dev/null
+ 	mount -t sysfs sys /mnt/hd_root/sys 2>/dev/null
+ 	exec_or_die "mountpoint -q /mnt/hd_root/dev && mountpoint -q /mnt/hd_root/proc && mountpoint -q /mnt/hd_root/sys"
+}
+function copy_root_files() {
+	bmsg 'Copying root partition files'
+ 	exec_or_die "mountpoint -q /mnt/hd_root"
+	umount_vfs
+	exec_or_die "(cd /mnt/usb_root && rsync -av * /mnt/hd_root && bmsg 'Done copying')"
+}
+function create_fstab_and_resolv_conf() {
+	new_fstab='
+/dev/mapper/foo /        ext4     errors=remount-ro 0 1
+UUID=%s          /boot    vfat     errors=remount-ro 0 2
+# proc                     /proc    proc     defaults 0 0
+# sysfs                    /sys     sysfs    defaults 0 0
+# udev                     /dev     devtmpfs defaults 0 0
+# devpts                   /dev/pts devpts   defaults 0 0
+UUID=%s /mnt/disk1 ext4 defaults 0 2'
+ 	exec_or_die "mountpoint -q /mnt/hd_root"
+	printf "$new_fstab\n" $HD_BOOT_UUID $HD_BLKCHAIN_UUID > /mnt/hd_root/etc/fstab
+ 	exec_or_die "rm /mnt/hd_root/etc/resolv.conf"
+ 	exec_or_die "cp /etc/resolv.conf /mnt/hd_root/etc"
+}
+function install_grub {
+	grub_install_chroot='#/bin/bash
+echo "Unholding non-upgradeable packages"
+HOLD_PKGS="grub-common grub-gfxpayload-lists grub-pc grub-pc-bin grub2-common"
+for i in $HOLD_PKGS; do echo $i install | dpkg --set-selections; done
+apt-get update
+apt-get --yes upgrade
+apt-get --yes install grub-efi
+grub-install --target x86_64-efi --efi-directory /boot --bootloader-id mmgen_live'
+	bmsg 'Installing Grub'
+	exec_or_die "mountpoint -q /mnt/hd_root && mountpoint -q /mnt/hd_root/boot"
+	echo "$grub_install_chroot" > /mnt/hd_root/setup/install-grub-efi
+	chmod 755 /mnt/hd_root/setup/install-grub-efi
+	chroot /mnt/hd_root setup/install-grub-efi
+	exec_or_die "stat /mnt/hd_root/boot/EFI/mmgen_live >/dev/null"
+}
+function edit_grub_cfg() {
+	grub_cfg_stub="search.fs_uuid %s root hd0,gpt1
+set prefix=(\$root)'/grub'
+configfile \$prefix/grub.cfg"
+	bmsg 'Creating the Grub stub configuration file'
+	exec_or_die "mountpoint -q /mnt/hd_root/boot"
+	exec_or_die "stat /mnt/hd_root/boot/EFI/mmgen_live >/dev/null"
+	printf "$grub_cfg_stub\n" $HD_BOOT_UUID > /mnt/hd_root/boot/EFI/mmgen_live/grub.cfg
+
+	bmsg 'Editing the Grub configuration file'
+	exec_or_die "cp /boot/grub/grub.cfg /mnt/hd_root/boot/grub"
+	exec_or_die 'ed /mnt/hd_root/boot/grub/grub.cfg' <<-EOF
+	,s/^search.*--set=root.*/search --no-floppy --fs-uuid --set=root $HD_BOOT_UUID/
+	,s/^set.*rootfs_dev=.*/set rootfs_dev='\/dev\/disk\/by-uuid\/$HD_ROOT_UUID'/
+	,s/^insmod part_.*/insmod part_gpt/
+	wq
+	EOF
+
+	rm -f /mnt/hd_root/boot/grub/grub.cfg.bak
+	exec_or_die 'cp /mnt/hd_root/boot/grub/grub.cfg /mnt/hd_root/boot/grub/grub.cfg.mmgen.bak'
+}
+function check_installed_and_set_hdinstall_vars() {
+	NOT_INSTALLED_MSG="
+No installation found!
+Try running the setup program without the '-d' option."
+	HD_BOOT=($(lsblk -l -o NAME,LABEL | grep MMGEN_HBOOT))
+	[ "$HD_BOOT" ] || return 1
+	USB_BOOT=($(lsblk -l -o NAME,LABEL | grep MMGEN_BOOT))
+	HD_ROOT=${HD_BOOT%1}2 HD_BLKCHAIN=${HD_BOOT%1}3
+	HD_ROOT_UUID=($(lsblk -l -o UUID,NAME | grep $HD_ROOT$))
+	HD_BOOT_UUID=($(lsblk -l -o UUID,NAME | grep $HD_BOOT$))
+	HD_BLKCHAIN_UUID=($(lsblk -l -o UUID,NAME | grep $HD_BLKCHAIN$))
+# echo -e "USB_BOOT $USB_BOOT\nHD_BOOT $HD_BOOT\nHD_ROOT $HD_ROOT\nHD_BLKCHAIN $HD_BLKCHAIN"
+# echo -e "HD_BOOT_UUID $HD_BOOT_UUID\nHD_ROOT_UUID $HD_ROOT_UUID\nHD_BLKCHAIN_UUID $HD_BLKCHAIN_UUID"
+	return 0
+}
+function check_efi_support() {
+	msg="
+The running system has no /sys/firmware/efi directory, which means it does not
+support UEFI. If your hardware platform supports UEFI, then you may have booted
+into legacy BIOS mode.  If this is the case, then you should exit this program
+now and reboot your computer into UEFI mode via the BIOS setup or boot menu.
+
+If your hardware does not support UEFI, you may try installing without UEFI
+support, but there's no guarantee the resulting installation will boot.  You've
+been warned.
+
+Continue anyway? (ENTER to continue, Ctrl-C to exit): "
+	[ -d "/sys/firmware/efi" ] || { echo -n "$msg"; read; }
+}
+function do_setup_hd() {
+	bmsg 'Installing the MMGen system on the hard drive'
+	cd /root
+	check_installed_and_set_hdinstall_vars || { echo "$NOT_INSTALLED_MSG"; exit; }
+	check_efi_support
+
+	umount_vfs
+	umount_new_root
+	umount_live_root
+
+	mount_live_root
+	mount_new_root
+	copy_root_files
+	create_fstab_and_resolv_conf
+	mount_new_boot
+	copy_boot_files
+	mount_vfs
+	install_grub
+	edit_grub_cfg
+
+#	echo -n 'Finished. Pausing before unmount. Press any key to continue: '; read
+	umount_vfs
+	umount_new_root
+	umount_live_root
+	bmsg 'Done'
+}
+function hdd_install_exists() { # runs as user
+	if check_installed_and_set_hdinstall_vars; then
+		sudo mkdir -p /mnt/hd_boot
+		exec_or_die "sudo mount /dev/$HD_BOOT /mnt/hd_boot"
+		if [ -d /mnt/hd_boot/grub ]; then ret=0; else ret=1; fi
+		exec_or_die "sudo umount /mnt/hd_boot"
+		sudo rmdir /mnt/hd_boot
+		return $ret
+	else
+		return 1
+	fi
+}
 if [ "$EUID" == 0 ]; then
 	bmsg 'Entering admin setup'
-	do_setup_root
-else
-	eval "sudo $0 --self-called $ARGV && do_setup_user"
+	if [ "$HDD" ]; then do_setup_hd; else do_setup_root; fi
+else # entry point
+	[ "$TOR" ] && echo "Connecting via Tor"
+	[ "$PROXY" ] && echo "Connecting$TOR via proxy '$PROXY'"
+	eval "sudo $0 --self-called $ARGV" || exit 1
+	[ "$HDD" ] || {
+		do_setup_user
+		if hdd_install_exists; then
+			msg 'MMGen hard drive installation detected.  Exiting'
+		else
+			echo -n "$HD_INSTALL_MSG"; read
+			eval "sudo $0 --self-called -d"
+		fi
+		bmsg 'Done'
+	}
 #	gmsg 'Press ENTER to exit'; read
 fi

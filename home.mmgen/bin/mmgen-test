@@ -21,4 +21,4 @@ bitcoin-cli getbalance >/dev/null 2>&1 || {
 }
 
 cd ~/src/mmgen-*
-test/test.py -s
+test/test.py -Os
