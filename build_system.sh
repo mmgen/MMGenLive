@@ -264,7 +264,7 @@ function umount_vfs_usb()    { umount_vfs $USB_MNT_DIR; }
 function umount_vfs() {
 	DIR=$1
 	[ "$TARGET" == ${FUNCNAME[1]} ] && NO_CLEAN=1 # called by user
-	A='thermald dbus-daemon xl2tpd tor gmain gdbus NetworkManager'
+	A='thermald dbus-daemon tor gmain gdbus NetworkManager'
 	if lsof -v 2>/dev/null; then
 		PIDS=$(lsof -c ${A// / -c } +c0 | grep $DIR | awk '{ print $2 }' | uniq)
 		[ "$PIDS" ] && { for i in $PIDS; do exec_or_die "kill $i"; done; sleep 1; }
@@ -748,7 +748,6 @@ GRUB_ENABLE_CRYPTODISK="y"'
 # 	cf_append 'do_hdr' 'rc_local' 'echo "Disabling network services, wifi and bluetooth"
 # rfkill block wifi
 # rfkill block bluetooth
-# /etc/init.d/xl2tpd stop
 # exit 0 # MMGen'
 
 	cf_uncomment 'do_hdr' 'pam_su' 'auth sufficient pam_wheel.so trust'
@@ -1219,7 +1218,7 @@ function live_install_kernel() {
 }
 
 function live_install_system_utils() {
-	apt_get_install_chk 'patch ed ethtool dosfstools parted gdisk wipe lsof fbset man rfkill nano tmux vim sudo openssh-client rsync ppp network-manager-pptp iputils-arping xl2tpd privoxy tor tor-geoipdb openssh-server scrot feh openvpn' '--no-install-recommends'
+	apt_get_install_chk 'patch ed ethtool dosfstools parted gdisk wipe lsof fbset man rfkill nano tmux vim sudo openssh-client rsync ppp network-manager-pptp iputils-arping privoxy tor tor-geoipdb openssh-server scrot feh openvpn' '--no-install-recommends'
 }
 
 function live_install_x() {

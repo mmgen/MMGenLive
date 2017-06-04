@@ -102,7 +102,7 @@ function check_disk() {
 		exit 1
 	else
 		echo 'Disk has no partitions and appears to empty.'
-		echo -n 'Proceed with disk partition? (Y/n): '; read
+		echo -n 'Proceed with disk partitioning? (Y/n): '; read
 		echo "$REPLY" | egrep '^(n|N)$' && return 1
 		return 0
 	fi
@@ -372,18 +372,35 @@ grub-install --target x86_64-efi --efi-directory /boot --bootloader-id mmgen_liv
 	chroot /mnt/hd_root setup/install-grub-efi
 	exec_or_die "stat /mnt/hd_root/boot/EFI/mmgen_live >/dev/null"
 }
+function remove_grub {
+	grub_install_chroot='#/bin/bash
+HOLD_PKGS="grub-common grub-gfxpayload-lists grub-pc grub-pc-bin grub2-common"
+for i in $HOLD_PKGS; do echo $i install | dpkg --set-selections; done
+sudo apt-get --yes remove grub-efi grub-efi-amd64 grub-efi-amd64-bin grub-pc grub-pc-bin grub2-common
+for i in $HOLD_PKGS; do echo $i hold | dpkg --set-selections; done'
+	gmsg 'Removing Grub and holding non-upgradeable packages'
+	exec_or_die "mountpoint -q /mnt/hd_root && mountpoint -q /mnt/hd_root/boot"
+	echo "$grub_install_chroot" > /mnt/hd_root/setup/install-grub-efi
+	chmod 755 /mnt/hd_root/setup/install-grub-efi
+	chroot /mnt/hd_root setup/install-grub-efi
+	exec_or_die "stat /mnt/hd_root/boot/EFI/mmgen_live >/dev/null"
+}
 function edit_grub_cfg() {
 	grub_cfg_stub="search.fs_uuid %s root hd0,gpt1
 set prefix=(\$root)'/grub'
-configfile \$prefix/grub.cfg"
+configfile \$prefix/grub.cfg.mmgen"
 	bmsg 'Creating the Grub stub configuration file'
 	exec_or_die "mountpoint -q /mnt/hd_root/boot"
 	exec_or_die "stat /mnt/hd_root/boot/EFI/mmgen_live >/dev/null"
 	printf "$grub_cfg_stub\n" $HD_BOOT_UUID > /mnt/hd_root/boot/EFI/mmgen_live/grub.cfg
 
+	gmsg 'Copying the Grub background'
+	exec_or_die "cp -a /boot/grub/backgrounds /mnt/hd_root/boot/grub"
+
+	GRUB_CFG='/mnt/hd_root/boot/grub/grub.cfg.mmgen'
 	bmsg 'Editing the Grub configuration file'
-	exec_or_die "cp /boot/grub/grub.cfg /mnt/hd_root/boot/grub"
-	exec_or_die 'ed /mnt/hd_root/boot/grub/grub.cfg' <<-EOF
+	exec_or_die "cp /boot/grub/grub.cfg $GRUB_CFG"
+	exec_or_die 'ed $GRUB_CFG' <<-EOF
 	,s/^search.*--set=root.*/search --no-floppy --fs-uuid --set=root $HD_BOOT_UUID/
 	,s/^set.*rootfs_dev=.*/set rootfs_dev='\/dev\/disk\/by-uuid\/$HD_ROOT_UUID'/
 	,s/^insmod part_.*/insmod part_gpt/
@@ -391,19 +408,48 @@ configfile \$prefix/grub.cfg"
 	EOF
 
 	rm -f /mnt/hd_root/boot/grub/grub.cfg.bak
-	exec_or_die 'cp /mnt/hd_root/boot/grub/grub.cfg /mnt/hd_root/boot/grub/grub.cfg.mmgen.bak'
+	exec_or_die "cp $GRUB_CFG ${GRUB_CFG%.mmgen}"
+	exec_or_die "cp $GRUB_CFG $GRUB_CFG.bak"
+
+	tfile='/setup/.run-grub-install'
+	rc_local='/etc/rc.local'
+	rc_local_add="
+if [ -f $tfile ]; then
+	if efibootmgr 2>/dev/null >&2; then
+		if grub-install --target x86_64-efi --efi-directory /boot --bootloader-id mmgen_live; then
+			echo 'UEFI successfully updated. Try rebooting after the login prompt appears'
+			rm $tfile
+			sleep 10
+		fi
+	fi
+fi
+
+exit 0"
+	[ -d '/sys/firmware/efi' ] || { exec_or_die "touch /mnt/hd_root/$tfile"; }
+	grep -q $tfile /mnt/hd_root/$rc_local || {
+		exec_or_die "ed /mnt/hd_root/$rc_local" <<-EOF
+		g/^exit/d
+		wq
+		EOF
+		exec_or_die 'echo "$rc_local_add" >> /mnt/hd_root/$rc_local'
+	}
+}
+function usb_system_running() {
+	ub=($(lsblk -l -o NAME,LABEL | grep MMGEN_BOOT)) ur=${ub%1}2
+ 	ROOT_DEV=$(sudo cryptsetup status root_fs | grep device | awk '{print $2}')
+	[ "$ROOT_DEV" = "/dev/$ur" ]
 }
 function check_installed_and_set_hdinstall_vars() {
 	NOT_INSTALLED_MSG="
 No installation found!
 Try running the setup program without the '-d' option."
-	HD_BOOT=($(lsblk -l -o NAME,LABEL | grep MMGEN_HBOOT))
-	[ "$HD_BOOT" ] || return 1
 	USB_BOOT=($(lsblk -l -o NAME,LABEL | grep MMGEN_BOOT))
+	HD_BOOT=($(lsblk -l -o NAME,LABEL | grep MMGEN_HBOOT))
 	HD_ROOT=${HD_BOOT%1}2 HD_BLKCHAIN=${HD_BOOT%1}3
-	HD_ROOT_UUID=($(lsblk -l -o UUID,NAME | grep $HD_ROOT$))
 	HD_BOOT_UUID=($(lsblk -l -o UUID,NAME | grep $HD_BOOT$))
+	HD_ROOT_UUID=($(lsblk -l -o UUID,NAME | grep $HD_ROOT$))
 	HD_BLKCHAIN_UUID=($(lsblk -l -o UUID,NAME | grep $HD_BLKCHAIN$))
+	[ "$HD_BOOT" -a "$HD_BOOT_UUID" -a "$HD_ROOT_UUID" -a "$HD_BLKCHAIN_UUID" ] || return 1
 # echo -e "USB_BOOT $USB_BOOT\nHD_BOOT $HD_BOOT\nHD_ROOT $HD_ROOT\nHD_BLKCHAIN $HD_BLKCHAIN"
 # echo -e "HD_BOOT_UUID $HD_BOOT_UUID\nHD_ROOT_UUID $HD_ROOT_UUID\nHD_BLKCHAIN_UUID $HD_BLKCHAIN_UUID"
 	return 0
@@ -422,10 +468,39 @@ been warned.
 Continue anyway? (ENTER to continue, Ctrl-C to exit): "
 	[ -d "/sys/firmware/efi" ] || { echo -n "$msg"; read; }
 }
+function hdd_install_running() { # runs as user
+	HDD_INSTALL_RUNNING_MSG='The MMGen system already is already installed and running on the hard drive.'
+ 	ROOT_DEV=$(sudo cryptsetup status root_fs | grep device | awk '{print $2}')
+	hb=($(lsblk -l -o NAME,LABEL | grep MMGEN_HBOOT))
+	hr=${hb%1}2
+	[ "$ROOT_DEV" = "/dev/$hr" ]
+}
+function hdd_install_exists() { # runs as user
+	HDD_INSTALLED_MSG='
+The MMGen system already appears to be installed on the hard drive.  Are you
+sure you want to continue?  (Enter to continue, Ctrl-C to exit): '
+	if check_installed_and_set_hdinstall_vars; then
+		sudo mkdir -p /mnt/hd_boot
+		exec_or_die "sudo mount /dev/$HD_BOOT /mnt/hd_boot"
+		if [ -d /mnt/hd_boot/grub ]; then ret=0; else ret=1; fi
+		exec_or_die "sudo umount /mnt/hd_boot"
+		sudo rmdir /mnt/hd_boot
+		return $ret
+	else
+		return 1
+	fi
+}
+HD_INSTALL_DONE_MSG='
+The MMGen system is now installed on your hard drive. You may now shut down your
+computer, remove the USB stick or other removable media and restart.'
 function do_setup_hd() {
 	bmsg 'Installing the MMGen system on the hard drive'
 	cd /root
 	check_installed_and_set_hdinstall_vars || { echo "$NOT_INSTALLED_MSG"; exit; }
+	hdd_install_running && { echo "$HDD_INSTALL_RUNNING_MSG Exiting"; exit; }
+	check_mounted /dev/${HD_BOOT%1}
+	hdd_install_exists && { echo -n "$HDD_INSTALLED_MSG"; read; }
+
 	check_efi_support
 
 	umount_vfs
@@ -439,7 +514,9 @@ function do_setup_hd() {
 	mount_new_boot
 	copy_boot_files
 	mount_vfs
+#	echo -n 'Paused (Ctrl-C to exit)'; read
 	install_grub
+##	remove_grub # skip, as we may want to run grub-install in installed system
 	edit_grub_cfg
 
 #	echo -n 'Finished. Pausing before unmount. Press any key to continue: '; read
@@ -447,30 +524,21 @@ function do_setup_hd() {
 	umount_new_root
 	umount_live_root
 	bmsg 'Done'
-}
-function hdd_install_exists() { # runs as user
-	if check_installed_and_set_hdinstall_vars; then
-		sudo mkdir -p /mnt/hd_boot
-		exec_or_die "sudo mount /dev/$HD_BOOT /mnt/hd_boot"
-		if [ -d /mnt/hd_boot/grub ]; then ret=0; else ret=1; fi
-		exec_or_die "sudo umount /mnt/hd_boot"
-		sudo rmdir /mnt/hd_boot
-		return $ret
-	else
-		return 1
-	fi
+	echo "$HD_INSTALL_DONE_MSG"
 }
 if [ "$EUID" == 0 ]; then
 	bmsg 'Entering admin setup'
 	if [ "$HDD" ]; then do_setup_hd; else do_setup_root; fi
 else # entry point
+	hdd_install_running && { echo "$HDD_INSTALL_RUNNING_MSG Exiting"; exit; }
+	usb_system_running || { echo 'MMGenLive is not running on removable media. Exiting'; exit; }
 	[ "$TOR" ] && echo "Connecting via Tor"
 	[ "$PROXY" ] && echo "Connecting$TOR via proxy '$PROXY'"
 	eval "sudo $0 --self-called $ARGV" || exit 1
 	[ "$HDD" ] || {
 		do_setup_user
 		if hdd_install_exists; then
-			msg 'MMGen hard drive installation detected.  Exiting'
+			msg 'Existing MMGen hard drive installation detected.  Exiting'
 		else
 			echo -n "$HD_INSTALL_MSG"; read
 			eval "sudo $0 --self-called -d"
