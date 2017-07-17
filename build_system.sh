@@ -839,7 +839,8 @@ function check_file_chksum {
 	fi
 }
 function retrieve_bitcoind { # retrieves to current directory
-	if echo "$VER" | egrep -q '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+	echo $VER
+	if echo "$VER" | egrep -q '^[0-9]+\.[0-9]+\.[0-9]+.*$'; then
 		echo "Latest version is $VER"
 		# Could have partial DL, so check sha256 sum
  		if [ -e "$ARCHIVE" -a "$BITCOIND_CHKSUM" ] && check_file_chksum $ARCHIVE $BITCOIND_CHKSUM;then
@@ -848,7 +849,7 @@ function retrieve_bitcoind { # retrieves to current directory
  			gecho "Found locally-stored archive for version $VER"
  		else
 			gecho "Retrieving Bitcoin Core $VER from '$DLDIR_URL'"
-			exec_or_die "$CURL -O $BITCOIND_URL"
+			exec_or_die "$CURL -LO $BITCOIND_URL"
  		fi
 		# checksums: https://github.com/bitcoin-core/gitian.sigs
 		if [ "$BITCOIND_CHKSUM" ]; then
@@ -875,8 +876,21 @@ function unpack_and_install_bitcoind {
 		rm -f $ARCHIVE
 		ymsg 'Archive could not be unpacked, so it was deleted.  Exiting.'; die
 	}
-	exec_or_die "cp -vf bitcoin-$VER/bin/bitcoin{d,-cli} $INSTALL_PREFIX/usr/local/bin"
-	exec_or_die "rm -rf bitcoin-$VER"
+	V=${VER%$SUBVER}
+	for f in bitcoin{d,-cli}; do
+		exec_or_die "cp -vf bitcoin-$V/bin/$f $INSTALL_PREFIX/usr/local/bin/$f$SUBVER"
+	done
+#	exec_or_die "cp -vf bitcoin-$V/bin/bitcoin{d,-cli} $INSTALL_PREFIX/usr/local/bin"
+	exec_or_die "rm -rf bitcoin-$V"
+}
+function chroot_install_bitcoind_archive() {
+	[ "$DLDIR_URL" -a "$BITCOIND_CHKSUM" -a "$VER" -a "$SUBVER" -a "$ARCHIVE" ] || {
+		die '$BITCOIND_URL or $BITCOIND_CHKSUM or $VER or $SUBVER or $ARCHIVE not set'
+	}
+	VER=$VER$SUBVER
+	BITCOIND_URL=$DLDIR_URL/$ARCHIVE
+	retrieve_bitcoind
+	unpack_and_install_bitcoind '/'
 }
 function chroot_install_bitcoind_version() {
 	[ "$BITCOIND_VERSION" -a "$BITCOIND_CHKSUM" ] || {

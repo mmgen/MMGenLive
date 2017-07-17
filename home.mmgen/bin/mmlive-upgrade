@@ -67,6 +67,8 @@ export ONLINE CURL GIT APT_GET LYNX BUILD_SYSTEM
 
 . ~/scripts/include/functions.sh
 
+export RED YELLOW GREEN BLUE RESET
+
 function gpg_verify {
 	[ "$SKIP_PGP_VERIFY" ] && return 0
 	echo -n "Verifying signature on '$2'..."

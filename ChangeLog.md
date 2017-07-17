@@ -1,5 +1,8 @@
 ## ChangeLog
 
+### v0.0.7m
++ Upgrade Bitcoin Core to version 0.14.2 BIP148
+
 ### v0.0.7l
 + Upgrade MMGen to v0.9.1
 
