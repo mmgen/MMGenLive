@@ -6,30 +6,34 @@ TW_FILE='mmgen-tracking-wallet.dat'
 DB_CACHE_ARG=
 NOLISTEN_ARG=' -listen=0'
 
-while getopts hAa:d:os:tTU OPT
+while getopts hAa:d:JKos:tTU OPT
 do
 	case "$OPT" in
 	h)  printf "  %-16s Start an MMGen Bitcoin Core node\n" "${PROGNAME^^}:"
 		echo   "  USAGE:           $PROGNAME"
 		echo   "  OPTIONS:   '-h'   Print this help message"
 		echo   "             '-a a' Additional args to be passed to bitcoind (as one arg, quoted)"
-		echo   "             '-A'   Run the bitcoin ABC hard-fork client"
+		echo   "             '-A'   Run the Bitcoin ABC hard-fork client"
 		echo   "             '-d c' Set the -dbcache value to 'c' (default: dynamic, based on available memory)"
 		echo   "             '-o'   Start in offline mode"
 		echo   "             '-s n' Try connecting to node 'n'"
 		echo   "             '-t'   Testing mode.  Just print the command that would be executed"
 		echo   "             '-T'   Run exclusively on the Tor onion network (Tor must be running)"
 		echo   "             '-U'   Run the UASF-BIP148-enabled client"
+		echo   "             '-J'   Run the Bitcoin UASF client for a dual-node setup (reduced memory)"
+		echo   "             '-K'   Run the Bitcoin ABC client for a dual-node setup (reduced memory, ports 8443/8442)"
 		exit ;;
 	a) ADD_ARGS+=" $OPTARG" ;;
-	A) echo 'Running bitcoin-abc hard-fork client!'
+	K) TWO_DAEMONS=1 ADD_ARGS+=" --bind=127.0.0.1:8443 --rpcbind=localhost:8442 --rpcallowip=127.0.0.1" ;;&
+	K|A) echo 'Running Bitcoin ABC hard-fork (BCH) client!'
 	   TW_FILE='mmgen-tracking-wallet-abc.dat'
 	   ADD_ARGS+=" -datadir=$HOME/.bitcoin-abc" EXEC_SUF='-abc' ;;
 	d) DB_CACHE_ARG=" -dbcache=$OPTARG" ;;
 	o) ADD_ARGS+=" -maxconnections=0" ;;
 	s) ADD_ARGS+=" -addnode=$OPTARG" ;;
 	t) TESTING=1 ;;
-	U) echo 'Running BIP148-UASF-enabled client!'
+	J) TWO_DAEMONS=1 ;;&
+	J|U) echo 'Running BIP148-UASF-enforcing client!'
 	   EXEC_SUF='-uasfsegwit1.0' ;;
 	T) ADD_ARGS+=" -onlynet=onion -debug=tor" NOLISTEN_ARG= ;;
 	*)  exit ;;
@@ -41,9 +45,9 @@ shift $((OPTIND-1))
 if [ ! "$DB_CACHE_ARG" ]; then
 	M=$(cat /proc/meminfo | grep MemAvailable | awk '{ print $2 }')
 	M=$(((M / 1024) - 3000))
-	if [ $M -gt 5000 ]; then M=5000 
-	elif [ $M -lt 300 ]; then M= 
-	fi
+	[ "$TWO_DAEMONS" ] && M=$((M / 2))
+	[ $M -gt 5000 ]    && M=5000 
+	[ $M -lt 300 ]     && M= 
 	[ "$M" ] && DB_CACHE_ARG=" -dbcache=$M"
 fi
 
