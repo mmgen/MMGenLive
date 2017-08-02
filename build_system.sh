@@ -813,7 +813,7 @@ function setup_user() {
 }
 function get_bitcoind_dl_url { # sets DLDIR_URL, BITCOIND_URL, VER, ARCHIVE
 	VER=$1
-	gmsg "Finding download URL for Bitcoin Core version '$VER'"
+	gmsg "Finding download URL for bitcoind version '$VER'"
 	DLDIR_URL='https://bitcoin.org/bin/'
 	TEXT=$(eval "$LYNX --listonly --nonumbers --dump $DLDIR_URL")
 #	echo "$TEXT" > /tmp/bitcoin.org.dl.txt
@@ -839,7 +839,6 @@ function check_file_chksum {
 	fi
 }
 function retrieve_bitcoind { # retrieves to current directory
-	echo $VER
 	if echo "$VER" | egrep -q '^[0-9]+\.[0-9]+\.[0-9]+.*$'; then
 		echo "Latest version is $VER"
 		# Could have partial DL, so check sha256 sum
@@ -848,7 +847,7 @@ function retrieve_bitcoind { # retrieves to current directory
  		elif [ -e "$ARCHIVE" -a -z "$BITCOIND_CHKSUM" ]; then
  			gecho "Found locally-stored archive for version $VER"
  		else
-			gecho "Retrieving Bitcoin Core $VER from '$DLDIR_URL'"
+			gecho "Retrieving bitcoind $VER from '$DLDIR_URL'"
 			exec_or_die "$CURL -LO $BITCOIND_URL"
  		fi
 		# checksums: https://github.com/bitcoin-core/gitian.sigs
@@ -860,7 +859,7 @@ function retrieve_bitcoind { # retrieves to current directory
 			pause
 		fi
 	else
-		yecho -n "Unable to find latest version of Bitcoin Core"
+		yecho -n "Unable to find latest version of bitcoind"
 		yecho " (version number ${VER} doesn't fit pattern)."
 		yecho "See: $DLDIR_URL"
 		yecho -n "Download the latest Linux ${ARCH_BITS}-bit gzipped tar archive, place it in"
@@ -871,7 +870,7 @@ function retrieve_bitcoind { # retrieves to current directory
 function unpack_and_install_bitcoind {
 	[ "$1" ] || die "You must specify an install prefix"
 	INSTALL_PREFIX=${1%/}
-	gmsg 'Unpacking and installing Bitcoin Core'
+	gmsg 'Unpacking and installing bitcoind'
 	tar xzf $ARCHIVE || {
 		rm -f $ARCHIVE
 		ymsg 'Archive could not be unpacked, so it was deleted.  Exiting.'; die

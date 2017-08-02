@@ -1,5 +1,9 @@
 ## ChangeLog
 
+### v0.0.7n
++ Upgrade MMGen to aug1hf tag version
++ Install Bitcoin ABC client with disclaimer
+
 ### v0.0.7m
 + Upgrade Bitcoin Core to version 0.14.2 BIP148
 
