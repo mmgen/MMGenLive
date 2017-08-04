@@ -1,0 +1,34 @@
+#!/bin/bash
+
+PROGNAME=`basename $0`
+DESC='Bitcoin Core'
+
+while getopts hAet OPT
+do
+	case "$OPT" in
+	h)  printf "  %-16s Stop an MMGen bitcoind node\n" "${PROGNAME^^}:"
+		echo   "  USAGE:           $PROGNAME"
+		echo   "  OPTIONS:   '-h'   Print this help message"
+		echo   "             '-e'   Stop a testnet node"
+		echo   "             '-A'   Stop the Bitcoin ABC hard-fork client"
+		echo   "             '-t'   Testing mode.  Just print the command that would be executed"
+		exit ;;
+	A) ABC=1 DESC='Bitcoin ABC hard-fork (BCH)' PORT_ARG=' --rpcport=8442' ;;
+	e) TESTNET=1 ADD_ARGS+=' --rpcconnect=127.0.0.1' PORT_ARG=' --rpcport=18332' ;;
+	t) TESTING=1 ;;
+	*)  exit ;;
+	esac
+done
+
+shift $((OPTIND-1))
+
+[ "$TESTNET" -a "$ABC" ] && PORT_ARG=' --rpcport=18442'
+
+CMD="bitcoin-cli$ADD_ARGS$PORT_ARG stop"
+
+if [ "$TESTING" ]; then
+	echo "Would execute: $CMD"
+else
+	echo "Stopping the $DESC client!"
+	eval $CMD
+fi

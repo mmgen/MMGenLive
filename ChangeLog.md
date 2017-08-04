@@ -1,7 +1,9 @@
 ## ChangeLog
 
+### v0.0.7o
++ Upgrade MMGen to btc_bch tag version
+
 ### v0.0.7n
-+ Upgrade MMGen to aug1hf tag version
 + Install Bitcoin ABC client with disclaimer
 
 ### v0.0.7m

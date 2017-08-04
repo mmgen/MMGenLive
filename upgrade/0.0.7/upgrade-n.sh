@@ -1,20 +1,8 @@
 #!/bin/bash
 #:REV: 0.0.7n
-#:DESC: Upgrade MMGen to aug1hf tag version
 #:DESC: Install Bitcoin ABC client with disclaimer
 
 set -e
-
-function upgrade_mmgen {
-	echo "Upgrading MMGen to version '$VER'"
-	(
-		cd /setup/git/MMGenLive/
-		eval "$BUILD_SYSTEM chroot_install_mmgen_user_at_commit 'IN_MMLIVE_SYSTEM=1' 'MMGEN_COMMIT=$VER'"
-	)
-}
-
-VER='aug1hf'
-[ -d ~mmgen/src/mmgen-$VER ] || upgrade_mmgen
 
 VERSION='0.14.6'
 SUBVERSION='-abc'
