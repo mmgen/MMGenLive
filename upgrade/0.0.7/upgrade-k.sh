@@ -6,6 +6,9 @@ VERSION='0.14.1'
 CHKSUM='0c6920a9f3181a95ca029fdac5342b5702569ee441ec2128d19051f281683058'
 set -e
 
+echo "Skipping upgrade of Bitcoin Core to version '$VERSION' (newer version available)"
+exit 0
+
 function install_bitcoind {
 	echo "Upgrading Bitcoin Core to version '$VERSION'"
 	(

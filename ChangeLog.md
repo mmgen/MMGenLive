@@ -1,5 +1,8 @@
 ## ChangeLog
 
+### v0.0.7p
++ Upgrade Bitcoin Core to version 0.15.0
+
 ### v0.0.7o
 + Upgrade MMGen to btc_bch tag version
 
