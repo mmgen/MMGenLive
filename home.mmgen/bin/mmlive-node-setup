@@ -21,7 +21,7 @@ Install MMGen on the hard drive now? (Enter to continue, Ctrl-C to exit): "
 PROGNAME=`basename $0` PROJ_NAME='NodeSetup'
 PASSWD='mmgen'
 
-while getopts hdm:p:T OPT
+while getopts hdm:p:Tu OPT
 do
 	case "$OPT" in
 	h)  printf "  %-16s set up a Bitcoin Core node for a MMGen system\n" "${PROGNAME^^}:"
@@ -32,8 +32,10 @@ do
 		echo   "    '-d'   Install system on hard drive (use only after mmlive-node-setup has been run once)"
 		echo   "    '-p h' Connect via proxy 'p' (protocol://host:port)"
 		echo   "    '-T'   Connect via Tor (through privoxy)"
+		echo   "    '-u'   Create HDD system boot entries in USB stick grub.cfg"
 		exit ;;
 	d)  HDD=1 ;;
+	u)  GRUB_CFG_HDSYS_SETUP=1 ;;
 	m)  [ "$OPTARG" -gt 0 ] || { echo "'$OPTARG': invalid disk size parameter"; exit; }
 		MIN_DISK_SIZE=$OPTARG ;;
 	p)  PROXY=$OPTARG ;;
@@ -490,6 +492,30 @@ sure you want to continue?  (Enter to continue, Ctrl-C to exit): '
 		return 1
 	fi
 }
+function do_grub_cfg_hdsys_setup() {
+	bmsg 'Creating HDD system boot entries in USB stick grub.cfg'
+	GRUB_CFG='/boot/grub/grub.cfg'
+	for f in $GRUB_CFG.bak $GRUB_CFG.mmgen.bak; do [ -f $f ] && GRUB_CFG_BAK=$f; done
+	[ "$GRUB_CFG_BAK" ] || { echo 'Unable to find backup grub.cfg'; exit 1; }
+	grep -q kcryptoargs_hdd "$GRUB_CFG_BAK" && {
+		echo 'HDD system boot entries already added to grub.cfg. Skipping'; exit 1
+	}
+	check_installed_and_set_hdinstall_vars
+	RF_UUID=$(lsblk -no UUID /dev/$HD_ROOT)
+	[ "$RF_UUID" ] || { echo 'Unable to determine UUID of root fs device'; exit 1; }
+	BOOT_ENTRY_FS='menuentry "${desc} HDD SYSTEM%s ${passwd_info}" ${classinfo} {
+	echo "Loading vmlinuz-${kver}..."
+	linux /vmlinuz-$kver $kcryptoargs_hdd $kargs_%s
+	echo "Loading initrd.img-${kver}..."
+	initrd /initrd.img-$kver
+}'
+	printf "\nset rootfs_dev_hdd='/dev/disk/by-uuid/%s'\n" $RF_UUID >> $GRUB_CFG_BAK
+	printf 'set kcryptoargs_hdd="root=/dev/mapper/root_fs cryptopts=source=${rootfs_dev_hdd},target=root_fs rootfstype=ext4"\n' >> $GRUB_CFG_BAK
+	printf "$BOOT_ENTRY_FS\n" '' 'gfx' >> $GRUB_CFG_BAK
+	printf "$BOOT_ENTRY_FS\n" ' (text mode)' 'console' >> $GRUB_CFG_BAK
+	eval '/usr/local/sbin/update-grub-cfg-kver.sh'
+	bmsg 'HDD system boot entries added to grub.cfg'
+}
 HD_INSTALL_DONE_MSG='
 The MMGen system is now installed on your hard drive. You may now shut down your
 computer, remove the USB stick or other removable media and restart.'
@@ -528,14 +554,20 @@ function do_setup_hd() {
 }
 if [ "$EUID" == 0 ]; then
 	bmsg 'Entering admin setup'
-	if [ "$HDD" ]; then do_setup_hd; else do_setup_root; fi
+	if [ "$HDD" ]; then
+		do_setup_hd
+	elif [ "$GRUB_CFG_HDSYS_SETUP" ]; then
+		do_grub_cfg_hdsys_setup
+	else
+		do_setup_root
+	fi
 else # entry point
 	hdd_install_running && { echo "$HDD_INSTALL_RUNNING_MSG Exiting"; exit; }
 	usb_system_running || { echo 'MMGenLive is not running on removable media. Exiting'; exit; }
 	[ "$TOR" ] && echo "Connecting via Tor"
 	[ "$PROXY" ] && echo "Connecting$TOR via proxy '$PROXY'"
 	eval "sudo $0 --self-called $ARGV" || exit 1
-	[ "$HDD" ] || {
+	[ "$HDD" -o "$GRUB_CFG_HDSYS_SETUP" ] || {
 		do_setup_user
 		if hdd_install_exists; then
 			msg 'Existing MMGen hard drive installation detected.  Exiting'
