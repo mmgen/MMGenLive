@@ -1,5 +1,8 @@
 ## ChangeLog
 
+### v0.0.7q
++ Install Intel X drivers, remove xl2tpd
+
 ### v0.0.7p
 + Upgrade Bitcoin Core to version 0.15.0
 

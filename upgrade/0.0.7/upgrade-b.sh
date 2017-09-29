@@ -5,8 +5,9 @@
 #:DESC: Make bin, doc and scripts directories symlinks
 
 set -e
+sudo apt-get remove xl2tpd
 sudo apt-get update
-sudo apt-get install git
+sudo apt-get install git xserver-xorg-video-intel xserver-xorg-video-qxl
 git config --global user.email "mmlive@nowhere.com"
 git config --global user.name "MMGenLive User"
 sudo mkdir -p /setup/git
