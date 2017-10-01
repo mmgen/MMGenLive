@@ -1,5 +1,9 @@
 ## ChangeLog
 
+### v0.0.7r
++ Upgrade MMGen to version 0.9.3
++ Add grub.cfg update hook to apt.conf
+
 ### v0.0.7q
 + Install Intel X drivers, remove xl2tpd
 

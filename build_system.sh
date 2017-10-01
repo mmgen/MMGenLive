@@ -677,6 +677,7 @@ declare -A CFG_NAMES=(
 	[torrc]='/etc/tor/torrc'
 	[privoxy_conf]='/etc/privoxy/config'
 	[plymouth_text]='/usr/share/plymouth/themes/lubuntu-text/lubuntu-text.plymouth'
+	[apt_conf]='/etc/apt/apt.conf'
 )
 [ "$RELEASE" == 'jessie' ] && {
 	CFG_NAMES[supported_locales]='/etc/locale.gen'
@@ -698,6 +699,7 @@ function usb_create_system_cfg_files() {
 	BOOT_UUID=$(lsblk -no UUID $USB_P1)
 	[ "$BOOT_UUID" ] || die 'Missing boot filesystem UUID'
 
+	cf_append 'apt_conf' 'DPkg::Post-Invoke { "/usr/local/sbin/update-grub-cfg-kver.sh"; };'
 	cf_append 'do_hdr' 'etc_sudoers' "$USER ALL = NOPASSWD: ALL"
 	cf_insert 'do_hdr' 'etc_sudoers' '^Defaults' \
 	'Defaults	env_keep="http_proxy HTTP_PROXY https_proxy HTTPS_PROXY all_proxy ALL_PROXY"'
@@ -1241,7 +1243,7 @@ function live_install_x() {
 		jessie)      A='plymouth-themes plymouth-x11 lightdm' ;;
 		*) die "$RELEASE: unknown release"
 	esac
-	apt_get_install_chk "xserver-xorg xserver-xorg-video-vesa xserver-xorg-video-all xserver-xorg-video-fbdev x11-xserver-utils xinit xfce4 xfce4-notifyd xscreensaver desktop-base tango-icon-theme rxvt-unicode-256color fonts-dejavu network-manager-gnome vim-gtk crystalcursors xcursor-themes $A" '--no-install-recommends'
+	apt_get_install_chk "xserver-xorg xserver-xorg-video-intel xserver-xorg-video-qxl xserver-xorg-video-vesa xserver-xorg-video-all xserver-xorg-video-fbdev x11-xserver-utils xinit xfce4 xfce4-notifyd xscreensaver desktop-base tango-icon-theme rxvt-unicode-256color fonts-dejavu network-manager-gnome vim-gtk crystalcursors xcursor-themes $A" '--no-install-recommends'
 }
 function usb_install_extras() {
 	depends 'location=usb' mount_root && return
