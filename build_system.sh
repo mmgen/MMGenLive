@@ -849,7 +849,7 @@ function retrieve_bitcoind { # retrieves to current directory
  		elif [ -e "$ARCHIVE" -a -z "$BITCOIND_CHKSUM" ]; then
  			gecho "Found locally-stored archive for version $VER"
  		else
-			gecho "Retrieving bitcoind $VER from '$DLDIR_URL'"
+			gecho "Retrieving $ARCHIVE from '$DLDIR_URL'"
 			exec_or_die "$CURL -LO $BITCOIND_URL"
  		fi
 		# checksums: https://github.com/bitcoin-core/gitian.sigs
@@ -872,21 +872,24 @@ function retrieve_bitcoind { # retrieves to current directory
 function unpack_and_install_bitcoind {
 	[ "$1" ] || die "You must specify an install prefix"
 	INSTALL_PREFIX=${1%/}
-	gmsg 'Unpacking and installing bitcoind'
-	tar xzf $ARCHIVE || {
+	gmsg 'Unpacking and installing coin daemon'
+	exec_or_die 'rm -rf unpack'
+	exec_or_die 'mkdir -p unpack'
+	tar -C unpack -xzf $ARCHIVE || {
 		rm -f $ARCHIVE
 		ymsg 'Archive could not be unpacked, so it was deleted.  Exiting.'; die
 	}
-	V=${VER%$SUBVER}
-	for f in bitcoin{d,-cli}; do
-		exec_or_die "cp -vf bitcoin-$V/bin/$f $INSTALL_PREFIX/usr/local/bin/$f$SUBVER"
-	done
-#	exec_or_die "cp -vf bitcoin-$V/bin/bitcoin{d,-cli} $INSTALL_PREFIX/usr/local/bin"
-	exec_or_die "rm -rf bitcoin-$V"
+	(
+		exec_or_die "cd unpack/*/bin/"
+		for f in *coind *coin-cli; do
+			exec_or_die "cp -vf $f $INSTALL_PREFIX/usr/local/bin/$f$SUBVER"
+		done
+	)
+	exec_or_die "rm -rf unpack"
 }
 function chroot_install_bitcoind_archive() {
-	[ "$DLDIR_URL" -a "$BITCOIND_CHKSUM" -a "$VER" -a "$SUBVER" -a "$ARCHIVE" ] || {
-		die '$BITCOIND_URL or $BITCOIND_CHKSUM or $VER or $SUBVER or $ARCHIVE not set'
+	[ "$DLDIR_URL" -a "$BITCOIND_CHKSUM" -a "$VER" -a "$ARCHIVE" ] || {
+		die '$BITCOIND_URL or $BITCOIND_CHKSUM or $VER or $ARCHIVE not set'
 	}
 	VER=$VER$SUBVER
 	BITCOIND_URL=$DLDIR_URL/$ARCHIVE

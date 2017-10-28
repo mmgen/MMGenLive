@@ -1,5 +1,10 @@
 ## ChangeLog
 
+### v0.0.7s
++ Install Bitcoin ABC client version 0.15.1 with disclaimer
++ Install Litecoin client version 0.15.0.1rc1
++ Configure screensaver to blank screen by default
+
 ### v0.0.7r
 + Upgrade MMGen to version 0.9.3
 + Add grub.cfg update hook to apt.conf
