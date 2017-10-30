@@ -1,5 +1,8 @@
 ## ChangeLog
 
+### v0.0.7t
++ Upgrade MMGen to version 0.9.5
+
 ### v0.0.7s
 + Install Bitcoin ABC client version 0.15.1 with disclaimer
 + Install Litecoin client version 0.15.0.1rc1
