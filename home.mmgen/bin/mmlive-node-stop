@@ -2,19 +2,22 @@
 
 PROGNAME=`basename $0`
 DESC='Bitcoin Core'
+CLI_NAME='bitcoin-cli'
 
-while getopts hAet OPT
+while getopts hAelt OPT
 do
 	case "$OPT" in
-	h)  printf "  %-16s Stop an MMGen bitcoind node\n" "${PROGNAME^^}:"
+	h)  printf "  %-16s Stop a coin daemon\n" "${PROGNAME^^}:"
 		echo   "  USAGE:           $PROGNAME"
 		echo   "  OPTIONS:   '-h'   Print this help message"
-		echo   "             '-e'   Stop a testnet node"
-		echo   "             '-A'   Stop the Bitcoin ABC hard-fork client"
+		echo   "             '-e'   Stop a testnet client"
+		echo   "             '-A'   Stop the Bitcoin ABC (BCH) client"
+		echo   "             '-l'   Stop the Litecoin client"
 		echo   "             '-t'   Testing mode.  Just print the command that would be executed"
 		exit ;;
-	A) ABC=1 DESC='Bitcoin ABC hard-fork (BCH)' PORT_ARG=' --rpcport=8442' ;;
-	e) TESTNET=1 ADD_ARGS+=' --rpcconnect=127.0.0.1' PORT_ARG=' --rpcport=18332' ;;
+	l) DESC='Litecoin' CLI_NAME='litecoin-cli' ;;
+	A) ABC=1 DESC='Bitcoin ABC (BCH)' PORT_ARG=' --rpcport=8442' ;;
+	e) TESTNET=1 ADD_ARGS+=' --testnet=1' ;;
 	t) TESTING=1 ;;
 	*)  exit ;;
 	esac
@@ -24,7 +27,7 @@ shift $((OPTIND-1))
 
 [ "$TESTNET" -a "$ABC" ] && PORT_ARG=' --rpcport=18442'
 
-CMD="bitcoin-cli$ADD_ARGS$PORT_ARG stop"
+CMD="$CLI_NAME$ADD_ARGS$PORT_ARG stop"
 
 if [ "$TESTING" ]; then
 	echo "Would execute: $CMD"

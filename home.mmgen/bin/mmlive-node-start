@@ -2,32 +2,39 @@
 
 PROGNAME=`basename $0`
 TW_FILE='mmgen-tracking-wallet.dat'
-
+DAEMON_NAME='bitcoind'
 DB_CACHE_ARG=
 NOLISTEN_ARG=' -listen=0'
 
-while getopts hAa:d:eJKos:tTU OPT
+while getopts hAa:cCd:eJKlLos:tTU OPT
 do
 	case "$OPT" in
-	h)  printf "  %-16s Stop a Bitcoin daemon\n" "${PROGNAME^^}:"
+	h)  printf "  %-16s Start a coin daemon\n" "${PROGNAME^^}:"
 		echo   "  USAGE:           $PROGNAME"
-		echo   "  OPTIONS:   '-h'   Print this help message"
-		echo   "             '-a a' Additional args to be passed to bitcoind (as one arg, quoted)"
-		echo   "             '-A'   Run the Bitcoin ABC hard-fork client"
-		echo   "             '-d c' Set the -dbcache value to 'c' (default: dynamic, based on available memory)"
-		echo   "             '-e    Run a testnet node"
-		echo   "             '-o'   Start in offline mode"
-		echo   "             '-s n' Try connecting to node 'n'"
-		echo   "             '-t'   Testing mode.  Just print the command that would be executed"
-		echo   "             '-T'   Run exclusively on the Tor onion network (Tor must be running)"
-		echo   "             '-U'   Run the UASF-BIP148-enabled client"
-		echo   "             '-J'   Run the Bitcoin UASF client for a dual-node setup (reduced memory)"
-		echo   "             '-K'   Run the Bitcoin ABC client for a dual-node setup (reduced memory, ports 8443/8442)"
+		echo   "  OPTIONS:  '-h'   Print this help message"
+		echo   "            '-a a' Additional args to be passed to bitcoind (as one arg, quoted)"
+		echo   "            '-d c' Set the -dbcache value to 'c' (default: dynamic, based on available memory)"
+		echo   "            '-e    Run a testnet node"
+		echo   "            '-o'   Start in offline mode"
+		echo   "            '-s n' Try connecting to node 'n'"
+		echo   "            '-t'   Testing mode.  Just print the command that would be executed"
+		echo   "            '-T'   Run exclusively on the Tor onion network (Tor must be running)"
+		echo
+		echo   "            '-c'   Run the Bitcoin Core client for a single-node setup (default)"
+		echo   "            '-C'   Run the Bitcoin Core client for a dual-node setup (reduced memory usage)"
+		echo   "            '-U'   Run the Bitcoin UASF-BIP148-enabled client for a single-node setup"
+		echo   "            '-J'   Run the Bitcoin UASF client for a dual-node setup (reduced memory usage)"
+		echo   "            '-A'   Run the Bitcoin ABC (BCH) client for a single-node setup"
+		echo   "            '-K'   Run the Bitcoin ABC client for a dual-node setup (reduced memory, RPC port 8442)"
+		echo   "            '-l'   Run the Litecoin client for a single-node setup"
+		echo   "            '-L'   Run the Litecoin client for a dual-node setup (reduced memory usage)"
 		exit ;;
+	C) TWO_DAEMONS=1 ;;&
+	c|C) echo 'Running Bitcoin Core client!' ;;
 	a) ADD_ARGS+=" $OPTARG" ;;
 	e) TESTNET=1 ADD_ARGS+=" --testnet=1" ;;
 	K) TWO_DAEMONS=1 ;;&
-	K|A) echo 'Running Bitcoin ABC hard-fork (BCH) client!'
+	K|A) echo 'Running Bitcoin ABC (BCH) client!'
 	   TW_FILE='mmgen-tracking-wallet-bch.dat'
 	   ABC_ARGS+=" -datadir=$HOME/.bitcoin-abc --rpcbind=127.0.0.1:8442 --rpcallowip=127.0.0.1"
 	   ABC=1 EXEC_SUF='-abc' ;;
@@ -38,6 +45,10 @@ do
 	J) TWO_DAEMONS=1 ;;&
 	J|U) echo 'Running BIP148-UASF-enforcing client!'
 	   EXEC_SUF='-uasfsegwit1.0' ;;
+	L) TWO_DAEMONS=1 ;;&
+	l|L) echo 'Running Litecoin client!'
+	   TW_FILE='mmgen-tracking-wallet-ltc.dat'
+	   DAEMON_NAME='litecoind' ;;
 	T) TOR=1 ADD_ARGS+=" -onlynet=onion -debug=tor" NOLISTEN_ARG= ;;
 	*)  exit ;;
 	esac
@@ -54,13 +65,13 @@ shift $((OPTIND-1))
 if [ ! "$DB_CACHE_ARG" ]; then
 	M=$(cat /proc/meminfo | grep MemAvailable | awk '{ print $2 }')
 	M=$(((M / 1024) - 3000))
-	[ "$TWO_DAEMONS" ] && M=$((M / 2))
+	[ "$TWO_DAEMONS" ] && { M=$((M / 2)); echo 'Reducing memory usage for dual-node setup'; }
 	[ $M -gt 5000 ]    && M=5000 
 	[ $M -lt 300 ]     && M= 
 	[ "$M" ] && DB_CACHE_ARG=" -dbcache=$M"
 fi
 
-CMD="bitcoind$EXEC_SUF -daemon -wallet=$TW_FILE$DB_CACHE_ARG$NOLISTEN_ARG$ADD_ARGS$ABC_ARGS"
+CMD="$DAEMON_NAME$EXEC_SUF -daemon -wallet=$TW_FILE$DB_CACHE_ARG$NOLISTEN_ARG$ADD_ARGS$ABC_ARGS"
 if [ "$TESTING" ]; then MSG='Would execute'; else MSG='Executing'; fi
 echo "$MSG: $CMD"
 [ ! "$TESTING" ] && eval $CMD
