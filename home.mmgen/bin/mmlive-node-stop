@@ -4,7 +4,7 @@ PROGNAME=`basename $0`
 DESC='Bitcoin Core'
 CLI_NAME='bitcoin-cli'
 
-while getopts hAelt OPT
+while getopts hAelSt OPT
 do
 	case "$OPT" in
 	h)  printf "  %-16s Stop a coin daemon\n" "${PROGNAME^^}:"
@@ -13,10 +13,14 @@ do
 		echo   "             '-e'   Stop a testnet client"
 		echo   "             '-A'   Stop the Bitcoin ABC (BCH) client"
 		echo   "             '-l'   Stop the Litecoin client"
+		echo   "             '-S'   Stop the BTC1 (B2X) client"
 		echo   "             '-t'   Testing mode.  Just print the command that would be executed"
 		exit ;;
 	l) DESC='Litecoin' CLI_NAME='litecoin-cli' ;;
-	A) ABC=1 DESC='Bitcoin ABC (BCH)' PORT_ARG=' --rpcport=8442' ;;
+	A) ABC=1 DESC='Bitcoin ABC (BCH)' PORT_ARG=' --rpcport=8442'
+	   ADD_ARGS+=" -datadir=$HOME/.bitcoin-abc" ;;
+	S) B2X=1 DESC='BTC1 (B2X)' PORT_ARG=' --rpcport=8552'
+	   ADD_ARGS+=" -datadir=$HOME/.bitcoin-2x" ;;
 	e) TESTNET=1 ADD_ARGS+=' --testnet=1' ;;
 	t) TESTING=1 ;;
 	*)  exit ;;
@@ -26,6 +30,7 @@ done
 shift $((OPTIND-1))
 
 [ "$TESTNET" -a "$ABC" ] && PORT_ARG=' --rpcport=18442'
+[ "$TESTNET" -a "$B2X" ] && PORT_ARG=' --rpcport=18552'
 
 CMD="$CLI_NAME$ADD_ARGS$PORT_ARG stop"
 

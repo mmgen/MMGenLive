@@ -1,6 +1,5 @@
 #!/bin/bash
 #:REV: 0.0.7s
-#:DESC: Install Bitcoin ABC client version 0.15.1 with disclaimer
 #:DESC: Install Litecoin client version 0.15.0.1rc1
 #:DESC: Configure screensaver to blank screen by default
 
@@ -46,7 +45,7 @@ function edit_ss_cfg {
 }
 
 grep -q '^mode:.*one' ~/.xscreensaver && edit_ss_cfg
-bitcoind-abc --version | grep -q v0.15.1 || install_abc
+#bitcoind-abc --version | grep -q v0.15.1 || install_abc
 litecoind --version | grep -q v0.15.0.1 || install_ltc
 
 exit 0

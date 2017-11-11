@@ -177,11 +177,13 @@ function create_dirs_files_and_mount() {
 		exec_or_die "chown ${USER}.$GROUP $MOUNTPOINT"
 	fi
 
-	if [ ! -d $DATA_DIR ]; then
-		gmsg "Creating data directory '$DATA_DIR'"
-		exec_or_die "mkdir -p $DATA_DIR"
-	fi
-	exec_or_die "chown ${USER}.$GROUP $DATA_DIR"
+	for suf in '' '-abc' '-2x'; do
+		if [ ! -d $DATA_DIR$suf ]; then
+			gmsg "Creating data directory '$DATA_DIR$suf'"
+			exec_or_die "mkdir -p $DATA_DIR$suf"
+		fi
+		exec_or_die "chown ${USER}.$GROUP $DATA_DIR$suf"
+	done
 }
 
 TMP_DATA_DIR='/dev/shm/bitcoind-tmp-data-dir'
@@ -209,20 +211,24 @@ MMGEN_DATA_DIR="$HOME/.mmgen"
 HOME_BITCOIN_DATA_DIR="$HOME/.bitcoin"
 BACKUP_BITCOIN_DATA_DIR="$HOME/.bitcoin.old"
 function create_home_data_dir() {
-	# remove any existing link
-	[ -L $HOME_BITCOIN_DATA_DIR ] && exec_or_die "rm $HOME_BITCOIN_DATA_DIR"
+	for suf in '' '-abc' '-2x'; do
+		# remove any existing link
+		[ -L $HOME_BITCOIN_DATA_DIR$suf ] && exec_or_die "rm $HOME_BITCOIN_DATA_DIR$suf"
 
-	# move any existing directory
-	[ -d $HOME_BITCOIN_DATA_DIR ] && {
-		echo "Moving old bitcoin data directory"
-		exec_or_die "mv -f $HOME_BITCOIN_DATA_DIR $BACKUP_BITCOIN_DATA_DIR"
-	}
+		# move any existing directory
+		[ -d $HOME_BITCOIN_DATA_DIR$suf ] && {
+			echo "Moving old bitcoin data directory"
+			exec_or_die "mv -f $HOME_BITCOIN_DATA_DIR$suf $BACKUP_BITCOIN_DATA_DIR$suf"
+		}
 
-	echo "Linking '$DATA_DIR' to '$HOME_BITCOIN_DATA_DIR'"
-	exec_or_die "(cd && ln -s $DATA_DIR $HOME_BITCOIN_DATA_DIR)"
+		echo "Linking '$DATA_DIR$suf' to '$HOME_BITCOIN_DATA_DIR$suf'"
+		exec_or_die "(cd && ln -s $DATA_DIR$suf $HOME_BITCOIN_DATA_DIR$suf)"
 
-	# copy any existing bitcoin.conf
-	cp $BACKUP_BITCOIN_DATA_DIR/bitcoin.conf $HOME_BITCOIN_DATA_DIR 2>/dev/null
+		# copy any existing bitcoin.conf
+		[ -r $BACKUP_BITCOIN_DATA_DIR$suf/bitcoin.conf ] && {
+			cp -n $BACKUP_BITCOIN_DATA_DIR$suf/bitcoin.conf $HOME_BITCOIN_DATA_DIR$suf 2>/dev/null
+		}
+	done
 }
 function copy_and_link_twallet() {
 

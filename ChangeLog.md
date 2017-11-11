@@ -1,10 +1,12 @@
 ## ChangeLog
 
+### v0.0.7v
++ Install Bitcoin ABC client version 0.16.0 with disclaimer
+
 ### v0.0.7t
 + Upgrade MMGen to version 0.9.5
 
 ### v0.0.7s
-+ Install Bitcoin ABC client version 0.15.1 with disclaimer
 + Install Litecoin client version 0.15.0.1rc1
 + Configure screensaver to blank screen by default
 
