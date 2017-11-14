@@ -3,24 +3,21 @@
 PROGNAME=`basename $0`
 DESC='Bitcoin Core'
 CLI_NAME='bitcoin-cli'
+COINS='BTC BCH LTC B2X'
+COIN='BTC'
 
-while getopts hAelSt OPT
+while getopts hc:et OPT
 do
 	case "$OPT" in
 	h)  printf "  %-16s Stop a coin daemon\n" "${PROGNAME^^}:"
 		echo   "  USAGE:           $PROGNAME"
 		echo   "  OPTIONS:   '-h'   Print this help message"
+		echo   "             '-c'   Stop daemon for coin 'c' (default: $COIN, choices: $COINS)"
 		echo   "             '-e'   Stop a testnet client"
-		echo   "             '-A'   Stop the Bitcoin ABC (BCH) client"
-		echo   "             '-l'   Stop the Litecoin client"
-		echo   "             '-S'   Stop the BTC1 (B2X) client"
 		echo   "             '-t'   Testing mode.  Just print the command that would be executed"
 		exit ;;
-	l) DESC='Litecoin' CLI_NAME='litecoin-cli' ;;
-	A) ABC=1 DESC='Bitcoin ABC (BCH)' PORT_ARG=' --rpcport=8442'
-	   ADD_ARGS+=" -datadir=$HOME/.bitcoin-abc" ;;
-	S) B2X=1 DESC='BTC1 (B2X)' PORT_ARG=' --rpcport=8552'
-	   ADD_ARGS+=" -datadir=$HOME/.bitcoin-2x" ;;
+	c) COIN=${OPTARG^^}
+       echo $COINS | grep -q -- "\<$COIN\>" || { echo "'$COIN': unrecognized coin"; exit; } ;;
 	e) TESTNET=1 ADD_ARGS+=' --testnet=1' ;;
 	t) TESTING=1 ;;
 	*)  exit ;;
@@ -29,8 +26,16 @@ done
 
 shift $((OPTIND-1))
 
-[ "$TESTNET" -a "$ABC" ] && PORT_ARG=' --rpcport=18442'
-[ "$TESTNET" -a "$B2X" ] && PORT_ARG=' --rpcport=18552'
+case "$COIN" in
+	LTC) DESC='Litecoin' CLI_NAME='litecoin-cli' ;;
+	BCH) DESC='Bitcoin ABC (BCH)' PORT_ARG=' --rpcport=8442'
+	   ADD_ARGS+=" -datadir=$HOME/.bitcoin-abc" ;;
+	B2X) DESC='BTC1 (B2X)' PORT_ARG=' --rpcport=8338'
+	   ADD_ARGS+=" -datadir=$HOME/.bitcoin-2x" ;;
+esac
+
+[ "$TESTNET" -a "$COIN" == 'BCH' ] && PORT_ARG=' --rpcport=18442'
+[ "$TESTNET" -a "$COIN" == 'B2X' ] && PORT_ARG=' --rpcport=18338'
 
 CMD="$CLI_NAME$ADD_ARGS$PORT_ARG stop"
 

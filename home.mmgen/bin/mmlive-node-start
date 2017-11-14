@@ -5,58 +5,39 @@ TW_FILE='mmgen-tracking-wallet.dat'
 DAEMON_NAME='bitcoind'
 DB_CACHE_ARG=
 NOLISTEN_ARG=' -listen=0'
+COINS='BTC BCH LTC B2X'
+COIN='BTC'
 
-while getopts hAa:cCd:eJKlLMos:StTU OPT
+while getopts ha:c:d:Deimos:tT OPT
 do
 	case "$OPT" in
 	h)  printf "  %-16s Start a coin daemon\n" "${PROGNAME^^}:"
 		echo   "  USAGE:           $PROGNAME"
 		echo   "  OPTIONS:  '-h'   Print this help message"
 		echo   "            '-a a' Additional args to be passed to bitcoind (as one arg, quoted)"
+		echo   "            '-c'   Run daemon for coin 'c' (default: $COIN, choices: $COINS)"
+		echo   "            '-D'   Use daemon default for -dbcache"
 		echo   "            '-d c' Set the -dbcache value to 'c' (default: dynamic, based on available memory)"
 		echo   "            '-e    Run a testnet node"
+		echo   "            '-i'   Run an indexing node (--txindex)"
+		echo   "            '-m'   Run daemon for a 2-node (multi-node) setup, with reduced memory usage"
 		echo   "            '-o'   Start in offline mode"
 		echo   "            '-s n' Try connecting to node 'n'"
 		echo   "            '-t'   Testing mode.  Just print the command that would be executed"
 		echo   "            '-T'   Run exclusively on the Tor onion network (Tor must be running)"
-		echo
-		echo   "            '-c'   Run the Bitcoin Core client for a single-node setup (default)"
-		echo   "            '-C'   Run the Bitcoin Core client for a dual-node setup (reduced memory usage)"
-		echo   "            '-U'   Run the Bitcoin UASF-BIP148-enabled client for a single-node setup"
-		echo   "            '-S'   Run the BTC1 2X client for a single-node setup"
-		echo   "            '-J'   Run the Bitcoin UASF client for a dual-node setup (reduced memory usage)"
-		echo   "            '-A'   Run the Bitcoin ABC (BCH) client for a single-node setup"
-		echo   "            '-K'   Run the Bitcoin ABC client for a dual-node setup (reduced memory, RPC port 8442)"
-		echo   "            '-l'   Run the Litecoin client for a single-node setup"
-		echo   "            '-L'   Run the Litecoin client for a dual-node setup (reduced memory usage)"
-		echo   "            '-M'   Run the BTC1 2X client for a dual-node setup (reduced memory usage)"
 		exit ;;
-	C) TWO_DAEMONS=1 ;;&
-	c|C) echo 'Running Bitcoin Core client!' ;;
 	a) ADD_ARGS+=" $OPTARG" ;;
-	e) TESTNET=1 ADD_ARGS+=" --testnet=1" ;;
-	K) TWO_DAEMONS=1 ;;&
-	K|A) echo 'Running Bitcoin ABC (BCH) client!'
-	   TW_FILE='mmgen-tracking-wallet-bch.dat'
-	   ADD_ARGS+=" -datadir=$HOME/.bitcoin-abc --rpcallowip=127.0.0.1"
-	   PORT_ARG=" --rpcbind=127.0.0.1:8442"
-	   ABC=1 EXEC_SUF='-abc' ;;
+	c) COIN=${OPTARG^^}
+       echo $COINS | grep -q -- "\<$COIN\>" || { echo "'$COIN': unrecognized coin"; exit; } ;;
 	d) DB_CACHE_ARG=" -dbcache=$OPTARG" ;;
-	o) ADD_ARGS+=" -maxconnections=0" ;;
+	D) NO_DB_CACHE_ARG=1 ;;
+	e) TESTNET=1 ADD_ARGS+=" --testnet=1" ;;
+	i) ADD_ARGS+=" --txindex" ;;
+	m) TWO_DAEMONS=1 ;;
+	o) echo 'Running in offline mode' 
+	   ADD_ARGS+=" -maxconnections=0" ;;
 	s) ADD_ARGS+=" -addnode=$OPTARG" ;;
 	t) TESTING=1 ;;
-	J) TWO_DAEMONS=1 ;;&
-	J|U) echo 'Running BIP148-UASF-enforcing client!'
-	   EXEC_SUF='-uasfsegwit1.0' ;;
-	M) TWO_DAEMONS=1 ;;&
-	S|M) echo 'Running BTC1 2X HF client!'
-	   ADD_ARGS+=" -datadir=$HOME/.bitcoin-2x --rpcallowip=127.0.0.1"
-	   PORT_ARG=" --rpcbind=127.0.0.1:8552"
-	   B2X=1 EXEC_SUF='-2x' ;;
-	L) TWO_DAEMONS=1 ;;&
-	l|L) echo 'Running Litecoin client!'
-	   TW_FILE='mmgen-tracking-wallet-ltc.dat'
-	   DAEMON_NAME='litecoind' ;;
 	T) TOR=1 ADD_ARGS+=" -onlynet=onion -debug=tor" NOLISTEN_ARG= ;;
 	*)  exit ;;
 	esac
@@ -64,12 +45,25 @@ done
 
 shift $((OPTIND-1))
 
-[ "$TOR" -a "$ABC" ]     && ADD_ARGS+=" --bind=127.0.0.1:8443"
-[ "$TESTNET" -a "$ABC" ] && PORT_ARG=" --rpcbind=127.0.0.1:18442"
-[ "$TESTNET" -a "$B2X" ] && PORT_ARG=" --rpcbind=127.0.0.1:18552"
+case "$COIN" in
+	BCH) echo 'Running Bitcoin ABC (BCH) client!'
+		TW_FILE='mmgen-tracking-wallet-bch.dat'
+		ADD_ARGS+=" -datadir=$HOME/.bitcoin-abc --rpcallowip=127.0.0.1"
+		PORT_ARG=" --rpcbind=127.0.0.1:8442" EXEC_SUF='-abc' ;;
+	B2X) echo 'Running BTC1 2X HF client!'
+	   ADD_ARGS+=" -datadir=$HOME/.bitcoin-2x --rpcallowip=127.0.0.1"
+	   PORT_ARG=" --rpcbind=127.0.0.1:8338" EXEC_SUF='-2x' ;;
+	LTC) echo 'Running Litecoin client!'
+	   TW_FILE='mmgen-tracking-wallet-ltc.dat'
+	   DAEMON_NAME='litecoind' ;;
+esac
+
+[ "$TOR" -a "$COIN" == 'BCH' ]     && ADD_ARGS+=" --bind=127.0.0.1:8443"
+[ "$TESTNET" -a "$COIN" == 'BCH' ] && PORT_ARG=" --rpcbind=127.0.0.1:18442"
+[ "$TESTNET" -a "$COIN" == 'B2X' ] && PORT_ARG=" --rpcbind=127.0.0.1:18338"
 
 #	ADD_ARGS+=" --bind=127.0.0.1:8443"
-if [ ! "$DB_CACHE_ARG" ]; then
+if [ ! "$DB_CACHE_ARG" -a ! "$NO_DB_CACHE_ARG" ]; then
 	M=$(cat /proc/meminfo | grep MemAvailable | awk '{ print $2 }')
 	M=$(((M / 1024) - 3000))
 	[ "$TWO_DAEMONS" ] && { M=$((M / 2)); echo 'Reducing memory usage for dual-node setup'; }
@@ -77,6 +71,10 @@ if [ ! "$DB_CACHE_ARG" ]; then
 	[ $M -lt 300 ]     && M= 
 	[ "$M" ] && DB_CACHE_ARG=" -dbcache=$M"
 fi
+[ "$NO_DB_CACHE_ARG" ] && {
+	echo 'Using daemon defaults for -dbcache'
+	DB_CACHE_ARG=
+}
 
 CMD="$DAEMON_NAME$EXEC_SUF -daemon -wallet=$TW_FILE$DB_CACHE_ARG$NOLISTEN_ARG$ADD_ARGS$PORT_ARG"
 if [ "$TESTING" ]; then MSG='Would execute'; else MSG='Executing'; fi
