@@ -1,5 +1,8 @@
 ## ChangeLog
 
+### v0.0.7w
++ Upgrade Bitcoin Core to version 0.15.1
+
 ### v0.0.7v
 + Install Bitcoin ABC client version 0.16.0 with disclaimer
 
