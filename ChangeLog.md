@@ -1,5 +1,9 @@
 ## ChangeLog
 
+### v0.0.7x
++ Upgrade kernel and microcode with Meltdown and Spectre fixes
++ Install MMGen v0.9.6 dependencies
+
 ### v0.0.7w
 + Upgrade Bitcoin Core to version 0.15.1
 

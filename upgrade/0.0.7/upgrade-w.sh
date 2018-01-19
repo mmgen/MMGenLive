@@ -6,6 +6,10 @@ VERSION='0.15.1'
 CHKSUM='387c2e12c67250892b0814f26a5a38f837ca8ab68c86af517f975a2a2710225b'
 set -e
 
+echo "Skipping Bitcoin Core upgrade to version '$VERSION'"
+echo "Use the 'mmlive-daemon-upgrade' utility to install the latest version"
+exit 0
+
 function install_bitcoind {
 	echo "Upgrading Bitcoin Core to version '$VERSION'"
 	(

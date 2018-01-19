@@ -13,6 +13,9 @@ function upgrade_mmgen {
 }
 
 VER='v0.9.5'
+echo "Skipping MMGen upgrade to version '$VER'"
+echo "The 'mmlive-upgrade' utility will install the latest version automatically"
+exit 0
 mmgen-tool --version | grep -q 0.9.5 || upgrade_mmgen
 
 exit 0

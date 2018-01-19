@@ -12,7 +12,11 @@ CURL='curl -s -L'
 PRIVOXY='http://localhost:8118'
 PROJ_NAME='MMLiveUpgrade'
 ONLINE=1
-CURL='curl' GIT='git' APT_GET='sudo apt-get --yes' LYNX='lynx' BUILD_SYSTEM='sudo ./build_system.sh'
+CURL='curl' GIT='git' APT_GET='sudo apt-get --yes' LYNX='lynx'
+BUILD_SYSTEM='sudo ./build_system.sh'
+PIP='sudo -H pip'
+REPO_ROOT='/setup/git/MMGenLive'
+
 declare -A REPOS=(
 	[sys]='/setup/git/MMGenLive           https://github.com/mmgen/MMGenLive.git'
 	[mmgen_wiki]='/setup/git/mmgen-wiki   https://github.com/mmgen/mmgen.wiki.git'
@@ -39,6 +43,7 @@ do
 	g) GIT_UPDATE_ONLY=1 ;;
 	G) ONLINE= ;;
 	p) PROXY=$OPTARG
+	   PIP="$PIP --proxy=$OPTARG"
 	   CURL="$CURL -x $OPTARG"
 	   GIT="all_proxy=$OPTARG $GIT"
 	   APT_GET="https_proxy=$OPTARG http_proxy=$OPTARG $APT_GET"
@@ -47,6 +52,7 @@ do
 	s) SKIP_COMMIT_AUTH=1 ;;
 	s) SKIP_PGP_VERIFY=1 ;;
 	T) TOR='localhost:9050'
+	   PIP="$PIP --proxy=$PRIVOXY"
 	   CURL="$CURL -x $PRIVOXY"
 	   GIT="all_proxy=$PRIVOXY $GIT"
 	   APT_GET="https_proxy=$PRIVOXY http_proxy=$PRIVOXY $APT_GET"
@@ -59,7 +65,7 @@ done
 ARGV="$@"
 shift $((OPTIND-1))
 
-export ONLINE CURL GIT APT_GET LYNX BUILD_SYSTEM
+export ONLINE PIP CURL GIT APT_GET LYNX BUILD_SYSTEM REPO_ROOT
 [ "$REEXEC" ] || {
 	[ "$PROXY" ] && echo "Connecting via proxy $PROXY"
 	[ "$TOR" ] && echo "Connecting via Tor ($TOR) over privoxy ($PRIVOXY)"
@@ -69,7 +75,7 @@ export ONLINE CURL GIT APT_GET LYNX BUILD_SYSTEM
 
 export RED YELLOW GREEN BLUE RESET
 
-function gpg_verify {
+gpg_verify() {
 	[ "$SKIP_PGP_VERIFY" ] && return 0
 	echo -n "Verifying signature on '$2'..."
 	set +e
@@ -79,13 +85,13 @@ function gpg_verify {
 	echo "OK"
 }
 
-function version_ge {
+version_ge() {
 	H=$(echo -e "$MY_VER$MY_REV\n$1" | sort -V | head -n1)
 	[ "$H" == "$1" ] && return 0
 	return 1
 }
 
-function init_vars {
+init_vars() {
 	MY_VER=$(cat $HOME/var/version)
 	DIR="$HOME/var/$MY_VER"
 
@@ -103,7 +109,7 @@ function init_vars {
 	GPG='gpg --quiet --trust-model always'
 }
 
-function gen_docs {
+gen_docs() {
 	(
 		echo "Generating documentation from $1"
 		cd ${REPOS['sys']% *}
@@ -111,7 +117,7 @@ function gen_docs {
 	)
 }
 
-function verify_commit {
+verify_commit() {
 	git verify-commit $1 2>/dev/null || {
 		echo "Unable to verify latest commit for repo '$2'. Aborting"
 		exit 1
@@ -119,7 +125,7 @@ function verify_commit {
 	echo 'Signature on latest commit OK'
 }
 
-function python_install {
+python_install() {
 	(
 		echo "Installing python repository '$1'"
 		cd $1
@@ -127,7 +133,7 @@ function python_install {
 	)
 }
 
-function git_update {
+git_update() {
 	echo 'Updating git repositories'
 	for repo in 'sys' 'mmgen_wiki' 'mmlive_wiki' 'tools'; do
 		repo_dir=${REPOS[$repo]% *} repo_url=${REPOS[$repo]##* }
@@ -150,7 +156,7 @@ function git_update {
 	done
 }
 
-function offline_upgrade {
+do_version_upgrade() {
 	cd "${REPOS['sys']%% *}/upgrade"
 	ver=$(cat version)
 	if [ "$ver" != "$MY_VER" ]; then
@@ -174,9 +180,36 @@ function offline_upgrade {
 	echo 'System is up-to-date'
 }
 
+expand_partition_maybe() {
+	usb_system_running || return 0
+	[ -e ~/.partition_expanded ] && return 0
+	gecho 'Expanding root partition on USB drive'
+	mmlive-expand-partition && touch ~/.partition_expanded
+}
+
+upgrade_bitcoind_maybe() {
+	COIN='BTC'
+	daemon_upgrade_set_vars
+	daemon_test_installed && return 0
+	daemon_upgrade
+}
+
+upgrade_mmgen_maybe() {
+	target_ver=$(cat $REPO_ROOT/upgrade/$MY_VER/ver_mmgen)
+	installed_ver=$(mmgen-tool --version | head -n1 | awk '{print $NF}')
+	[ "$target_ver" == "$installed_ver" ] && return 0
+	gecho "Upgrading MMGen to version '$target_ver'"
+	(
+		cd $REPO_ROOT
+		cmd='chroot_install_mmgen_user_at_commit'
+		eval "$BUILD_SYSTEM $cmd 'IN_MMLIVE_SYSTEM=1' 'MMGEN_COMMIT=v$target_ver'"
+	)
+}
+
+# begin execution:
 init_vars
 
-which privoxy >/dev/null || bash ${REPOS['sys']%% *}/upgrade/$MY_VER/upgrade-c.sh # R8
+which privoxy >/dev/null || bash $REPO_ROOT/upgrade/$MY_VER/upgrade-c.sh # R8
 
 [ "$GEN_DOCS" -o ! -f ~/README ] && gen_docs 'Wikis'
 [ "$GEN_DOCS" ] && exit
@@ -186,4 +219,10 @@ which privoxy >/dev/null || bash ${REPOS['sys']%% *}/upgrade/$MY_VER/upgrade-c.s
 	# script may have changed, so re-exec with original args, skipping git update
 	exec $0 --reexec $ARGV
 }
-[ "$GIT_UPDATE_ONLY" ] || offline_upgrade
+
+[ "$GIT_UPDATE_ONLY" ] || {
+	expand_partition_maybe
+	upgrade_bitcoind_maybe
+	upgrade_mmgen_maybe
+	do_version_upgrade
+}

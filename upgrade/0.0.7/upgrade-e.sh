@@ -1,6 +1,7 @@
 #!/bin/bash
 #:REV: 0.0.7e
 #:DESC: Add environment vars http_proxy, etc. to '/etc/sudoers'
+#:DESC: Upgrade Ubuntu system
 #:DESC: Install kramdown and elinks
 #:DESC: Auto-generate documentation if wiki has changed
 
@@ -15,9 +16,15 @@ function edit_sudoers {
 	sudo bash -c ". $FUNCTIONS; cf_insert $SUDOERS '^Defaults' '$REPL'"
 }
 
+function apt_upgrade {
+	echo "Upgrading Ubuntu system"
+	eval "$APT_GET update"
+	eval "$APT_GET upgrade"
+	eval "$APT_GET clean"
+}
+
 function install_kramdown_elinks {
 	echo "Installing ruby-kramdown and elinks"
-	eval "$APT_GET update"
 	eval "$APT_GET install ruby-kramdown elinks"
 }
 
@@ -30,6 +37,7 @@ function regen_docs {
 }
 
 sudo grep -q 'http_proxy' $SUDOERS || edit_sudoers
+apt_upgrade
 which kramdown elinks >/dev/null || { install_kramdown_elinks; regen_docs; }
 
 exit 0

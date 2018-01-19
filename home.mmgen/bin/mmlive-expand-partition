@@ -21,33 +21,35 @@ shift $((OPTIND-1))
 
 echo -n "Finding MMGenLive USB device..."
 DEV=$(lsblk --list --bytes -o NAME,LABEL | grep MMGEN_BOOT | awk '{ print $1 }' | sed -r 's/[0-9]+$//')
-[ "$DEV" ] || { recho -e "\nUnable to find MMGenLive USB device"; exit; }
+[ "$DEV" ] || err_exit "\nUnable to find MMGenLive USB device"
 echo /dev/$DEV
 
 echo -n "Getting size of USB device..."
 DEV_SIZE=$(lsblk --list --bytes -o NAME,SIZE /dev/$DEV | grep "\<$DEV\>" | awk '{ print $2 }' )
 HUMAN_DEV_SIZE=$(lsblk --list -o NAME,SIZE /dev/$DEV | grep "\<$DEV\>" | awk '{ print $2 }' )
-[ "$DEV_SIZE" ] || { recho -e "\nUnable to determine size of USB device"; exit; }
+[ "$DEV_SIZE" ] || err_exit "\nUnable to determine size of USB device"
 echo $HUMAN_DEV_SIZE
 
 echo -n "Finding encrypted root filesystem device..."
 ROOT_FS_DEV=$(sudo cryptsetup status root_fs | grep 'device:' | awk '{ print $2 }')
-[ "$ROOT_FS_DEV" ] || { recho -e "\nUnable to find encrypted root filesystem device"; exit; }
+[ "$ROOT_FS_DEV" ] || err_exit "\nUnable to find encrypted root filesystem device"
 echo $ROOT_FS_DEV
 
-[ "$ROOT_FS_DEV" == "/dev/${DEV}2" ] || { recho 'Device mismatch'; exit; }
+[ "$ROOT_FS_DEV" == "/dev/${DEV}2" ] || err_exit 'Device mismatch'
 OLD_SIZE=$(lsblk --list -o NAME,SIZE $ROOT_FS_DEV | grep root_fs | awk '{ print $2 }')
 echo "Current root filesystem size: $OLD_SIZE"
 
 echo 'Resizing root filesystem partition...'
-echo -e "unit B\nrm 3\nresizepart 2 $((DEV_SIZE-1))" | sudo parted /dev/$DEV || { recho 'Unable to resize system partition'; exit; }
+echo -e "unit B\nrm 3\nresizepart 2 $((DEV_SIZE-1))" | sudo parted /dev/$DEV || {
+	err_exit 'Unable to resize system partition'
+}
 
 echo -n 'Resizing LUKS mapping...'
-sudo cryptsetup resize root_fs || { recho 'Unable to resize LUKS mapping'; exit; }
+sudo cryptsetup resize root_fs || err_exit 'Unable to resize LUKS mapping'
 echo 'OK'
 
 echo 'Resizing filesystem...'
-sudo resize2fs /dev/mapper/root_fs || { recho 'Unable to resize root filesystem'; exit; }
+sudo resize2fs /dev/mapper/root_fs || err_exit 'Unable to resize root filesystem'
 
 NEW_SIZE=$(lsblk --list -o NAME,SIZE $ROOT_FS_DEV | grep root_fs | awk '{ print $2 }')
 becho "Root filesystem expanded from $OLD_SIZE bytes to $NEW_SIZE bytes"

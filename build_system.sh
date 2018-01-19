@@ -517,10 +517,10 @@ function chroot_install_mmgen_dependencies() {
 	apt_get_install_chk 'locales'
 	do_gen_locales
 
-	apt_get_install_chk 'gcc libgmp-dev make python-pip python-dev python-pexpect python-ecdsa python-scrypt python-setuptools python-wheel libssl-dev alsa-utils elinks ruby-kramdown lynx unzip curl python-pycurl git libpcre3-dev' '--no-install-recommends'
+	apt_get_install_chk 'gcc libgmp-dev make python-pip python-dev python-pexpect python-ecdsa python-scrypt python-setuptools python-wheel libssl-dev alsa-utils elinks ruby-kramdown lynx unzip curl python-pycurl git libpcre3-dev python-crypto python-pysha3 python-nacl' '--no-install-recommends'
 
-	gmsg 'Installing the Python Cryptography Toolkit'
-	exec_or_die "$PIP install pycrypto"
+	gmsg 'Installing the Python ed25519ll module'
+	exec_or_die "$PIP install ed25519ll"
 }
 function chroot_install_vanitygen() {
 	exec_or_die 'cd /setup'

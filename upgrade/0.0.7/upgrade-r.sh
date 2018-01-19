@@ -29,9 +29,12 @@ EOF
 	return 0
 }
 
-VER='v0.9.3'
-[ -d ~mmgen/src/mmgen-0.9.3 ] || upgrade_mmgen
-
 edit_apt_conf
+
+VER='v0.9.3'
+echo "Skipping MMGen upgrade to version '$VER'"
+echo "The 'mmlive-upgrade' utility will install the latest version automatically"
+exit 0
+[ -d ~mmgen/src/mmgen-0.9.3 ] || upgrade_mmgen
 
 exit 0

@@ -10,6 +10,9 @@ CHKSUM='9f37b8ec36a37944b016bbbf07340adb8ba644abb897b2d2e0edeb99ccf709c0'
 DLDIR_URL='https://download.bitcoinabc.org/0.14.6/linux'
 ARCHIVE='bitcoin-0.14.6-x86_64-linux-gnu.tar.gz'
 
+echo "Skipping upgrade to version '$VERSION' (newer version available)"
+exit 0
+
 function do_install {
 	echo "Installing Bitcoin ABC version '$VERSION'"
 	(

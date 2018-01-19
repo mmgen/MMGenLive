@@ -5,7 +5,6 @@
 set -e
 
 function install_abc {
-	VERSION='0.16.0'
 	SUBVERSION='-abc'
 	CHKSUM='132912e57d28adc0dee8ad2beb6322e873310aa0c826b92f8c89a9b14c5b321a'
 	DLDIR_URL='https://download.bitcoinabc.org/0.16.0/linux'
@@ -20,6 +19,11 @@ function install_abc {
 	echo -e "${YELLOW}This is untrusted software.  No warranty is provided by the MMGen project.$RESET"
 	echo -e "${YELLOW}To minimize your risk, generate seeds and keys and sign transactions OFFLINE.$RESET"
 }
+
+VERSION='0.16.0'
+echo "Skipping Bitcoin ABC upgrade to version '$VERSION'"
+echo "Use the 'mmlive-daemon-upgrade' utility to install the latest version"
+exit 0
 
 bitcoind-abc --version | grep -q v0.16.0 || install_abc
 

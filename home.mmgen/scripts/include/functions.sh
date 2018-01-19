@@ -7,20 +7,22 @@ else
 	RED="\e[31;1m" YELLOW="\e[33;1m" GREEN="\e[32;1m" BLUE="\e[34;1m" RESET="\e[0m"
 fi
 
-function msg()  { echo ${2:+$1} $PROJ_NAME: "${2:-$1}"; }
-function rmsg() { echo -e ${2:+$1} $RED$PROJ_NAME: "${2:-$1}$RESET"; }
-function ymsg() { echo -e ${2:+$1} $YELLOW$PROJ_NAME: "${2:-$1}$RESET"; }
-function gmsg() { echo -e ${2:+$1} $GREEN$PROJ_NAME: "${2:-$1}$RESET"; }
-function bmsg() { echo -e ${2:+$1} $BLUE$PROJ_NAME: "${2:-$1}$RESET"; }
-function pause() { ymsg -n 'Paused.  Hit ENTER to continue: '; read junk; }
+msg()  { echo ${2:+$1} $PROJ_NAME: "${2:-$1}"; }
+rmsg() { echo -e ${2:+$1} $RED$PROJ_NAME: "${2:-$1}$RESET"; }
+ymsg() { echo -e ${2:+$1} $YELLOW$PROJ_NAME: "${2:-$1}$RESET"; }
+gmsg() { echo -e ${2:+$1} $GREEN$PROJ_NAME: "${2:-$1}$RESET"; }
+bmsg() { echo -e ${2:+$1} $BLUE$PROJ_NAME: "${2:-$1}$RESET"; }
+pause() { ymsg -n 'Paused.  Hit ENTER to continue: '; read junk; }
 
-function dbecho() { return; echo -e "${RED}DEBUG: $@$RESET"; }
-function recho() { echo -e ${2:+$1} "$RED${2:-$1}$RESET"; }
-function yecho() { echo -e ${2:+$1} "$YELLOW${2:-$1}$RESET"; }
-function gecho() { echo -e ${2:+$1} "$GREEN${2:-$1}$RESET"; }
-function becho() { echo -e ${2:+$1} "$BLUE${2:-$1}$RESET"; }
+dbecho() { return; echo -e "${RED}DEBUG: $@$RESET"; }
+recho() { echo -e ${2:+$1} "$RED${2:-$1}$RESET"; }
+yecho() { echo -e ${2:+$1} "$YELLOW${2:-$1}$RESET"; }
+gecho() { echo -e ${2:+$1} "$GREEN${2:-$1}$RESET"; }
+becho() { echo -e ${2:+$1} "$BLUE${2:-$1}$RESET"; }
 
-function exec_or_die() {
+err_exit() { recho "$1"; exit 1; }
+
+exec_or_die() {
 	set +x
 	eval "$@" || {
 		echo -e "$RED$PROJ_NAME: '$@' failed, line number $BASH_LINENO$RESET"
@@ -28,7 +30,7 @@ function exec_or_die() {
 	}
 }
 
-function cf_write() {
+cf_write() {
 	ACTION='write'
 	PAT='^(cf_uncomment|cf_append|cf_edit|cf_insert)$'
 	echo -n "${FUNCNAME[1]}" | egrep -q "$PAT" && ACTION=${FUNCNAME[1]/cf_}
@@ -61,7 +63,58 @@ function cf_write() {
 		echo -e "$TEXT" > $OUT
 	fi
 }
-function cf_append()    { cf_write "$@"; }
-function cf_uncomment() { cf_write "$@"; }
-function cf_edit()      { cf_write "$@"; }
-function cf_insert()    { cf_write "$@"; }
+cf_append()    { cf_write "$@"; }
+cf_uncomment() { cf_write "$@"; }
+cf_edit()      { cf_write "$@"; }
+cf_insert()    { cf_write "$@"; }
+
+usb_system_running() {
+	ub=($(lsblk -l -o NAME,LABEL | grep MMGEN_BOOT)) ur=${ub%1}2
+ 	ROOT_DEV=$(sudo cryptsetup status root_fs | grep device | awk '{print $2}')
+	[ "$ROOT_DEV" == "/dev/$ur" ]
+}
+
+daemon_upgrade_set_vars() {
+	case $COIN in
+		BTC)
+			DESC='Bitcoin Core'
+			VERSION='0.15.1'
+			CHKSUM='387c2e12c67250892b0814f26a5a38f837ca8ab68c86af517f975a2a2710225b'
+			DAEMON_NAME='bitcoind' ;;
+		LTC)
+			DESC='Litecoin'
+			VERSION='0.15.0.1'
+			SUBVERSION=''
+			CHKSUM='b47171844cbd653cea95de5339259c484f94c5ec2ef69575b78207447b3c763f'
+			DLDIR_URL="https://download.litecoin.org/litecoin-${VERSION}rc1/linux"
+			ARCHIVE='litecoin-0.15.0-x86_64-linux-gnu.tar.gz'
+			DAEMON_NAME='litecoind' ;;
+		BCH)
+			DESC='Bitcoin ABC'
+			VERSION='0.16.2'
+			SUBVERSION='-abc'
+			CHKSUM='5eeadea9c23069e08d18e0743f4a86a9774db7574197440c6d795fad5cad2084'
+			DLDIR_URL="https://download.bitcoinabc.org/$VERSION/linux"
+			ARCHIVE="bitcoin-abc-${VERSION}-x86_64-linux-gnu.tar.gz"
+			DAEMON_NAME='bitcoind-abc' ;;
+	esac
+}
+
+daemon_test_installed() {
+	$DAEMON_NAME --version | grep -q v${VERSION//./\\.} && return 0
+	return 1
+}
+
+daemon_upgrade() {
+	(
+	echo "Installing $DESC version $VERSION"
+	cd /setup/git/MMGenLive/
+	if [ $COIN == 'BTC' ]; then
+		TARGET='chroot_install_bitcoind_version'
+		eval "$BUILD_SYSTEM $TARGET 'IN_MMLIVE_SYSTEM=1' 'BITCOIND_CHKSUM=$CHKSUM' 'BITCOIND_VERSION=$VERSION'"
+	else
+		TARGET='chroot_install_bitcoind_archive'
+		eval "$BUILD_SYSTEM $TARGET 'IN_MMLIVE_SYSTEM=1' 'BITCOIND_CHKSUM=$CHKSUM' 'VER=$VERSION' 'SUBVER=$SUBVERSION' 'DLDIR_URL=$DLDIR_URL' 'ARCHIVE=$ARCHIVE'"
+	fi
+	)
+}

@@ -45,6 +45,12 @@ function edit_ss_cfg {
 }
 
 grep -q '^mode:.*one' ~/.xscreensaver && edit_ss_cfg
+
+VERSION='0.15.0.1'
+echo "Skipping Litecoind upgrade to version '$VERSION'"
+echo "Use the 'mmlive-daemon-upgrade' utility to install the latest version"
+exit 0
+
 #bitcoind-abc --version | grep -q v0.15.1 || install_abc
 litecoind --version | grep -q v0.15.0.1 || install_ltc
 

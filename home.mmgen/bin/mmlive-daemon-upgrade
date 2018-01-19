@@ -1,0 +1,51 @@
+#!/bin/bash
+
+set -e
+
+[ "$EUID" == 0 ] && { echo 'This script must be run as user, not as root'; exit 1; }
+
+PROGNAME=$(basename $0)
+PRIVOXY='http://localhost:8118'
+CURL='curl -L' LYNX='lynx'
+BUILD_SYSTEM='sudo ./build_system.sh'
+COINS='BTC BCH LTC'
+COIN='BTC'
+
+while getopts hc:p:T OPT
+do
+	case "$OPT" in
+	h)  printf "  %-16s Upgrade or install a coin daemon\n" "${PROGNAME^^}:"
+		echo   "  USAGE:           $PROGNAME"
+		echo   "  OPTIONS:"
+		echo   "    '-h'   Print this help message"
+		echo   "    '-c'   Upgrade daemon for coin 'c' (default: $COIN, choices: $COINS)"
+		echo   "    '-p h' Connect via proxy 'p' (protocol://host:port)"
+		echo   "    '-T'   Connect via Tor (through privoxy)"
+		exit ;;
+	c) COIN=${OPTARG^^}
+       echo $COINS | grep -q -- "\<$COIN\>" || { echo "'$COIN': unrecognized coin"; exit; } ;;
+	p) PROXY=$OPTARG
+	   CURL="$CURL -x $OPTARG"
+	   BUILD_SYSTEM="$BUILD_SYSTEM -P $OPTARG"
+	   LYNX="https_proxy=$OPTARG http_proxy=$OPTARG $LYNX" ;;
+	T) TOR='localhost:9050'
+	   CURL="$CURL -x $PRIVOXY"
+	   BUILD_SYSTEM="$BUILD_SYSTEM -P $PRIVOXY"
+	   LYNX="https_proxy=$PRIVOXY http_proxy=$PRIVOXY $LYNX" ;;
+	*) exit ;;
+	esac
+done
+
+shift $((OPTIND-1))
+
+. ~/scripts/include/functions.sh
+
+daemon_upgrade_set_vars
+daemon_test_installed && {
+	echo "$DESC daemon is already up to date (version $VERSION)"
+	exit 0
+}
+
+[ "$PROXY" ] && echo "Connecting via proxy $PROXY"
+[ "$TOR" ] && echo "Connecting via Tor ($TOR) over privoxy ($PRIVOXY)"
+daemon_upgrade

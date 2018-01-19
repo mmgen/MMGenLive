@@ -32,7 +32,7 @@ function install_node_tools {
 which unzip >/dev/null && dpkg -l python-pycurl >/dev/null 2>&1 || install_unzip_pycurl
 
 COMMIT='eb6f7ef195bd391174bd6563d0c85b1f1934873f'
-[ -d ~mmgen/src/mmgen-$COMMIT ] || upgrade_mmgen
+# [ -d ~mmgen/src/mmgen-$COMMIT ] || upgrade_mmgen
 
 which btc-ticker >/dev/null || install_node_tools
 
