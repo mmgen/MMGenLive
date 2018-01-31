@@ -1,11 +1,9 @@
 #!/bin/bash
 
 PROGNAME=`basename $0`
-TW_FILE='mmgen-tracking-wallet.dat'
-DAEMON_NAME='bitcoind'
 DB_CACHE_ARG=
 NOLISTEN_ARG=' --listen=0'
-COINS='BTC BCH LTC B2X'
+COINS='BTC BCH LTC'
 COIN='BTC'
 
 while getopts ha:c:d:DeimoOs:tT OPT
@@ -48,16 +46,17 @@ done
 shift $((OPTIND-1))
 
 case "$COIN" in
+	BTC) echo 'Running Bitcoin Core client!'
+		TW_FILE='mmgen-tracking-wallet.dat'
+		DAEMON_NAME='bitcoind' ;;
 	BCH) echo 'Running Bitcoin ABC (BCH) client!'
 		TW_FILE='mmgen-tracking-wallet-bch.dat'
-		ADD_ARGS+=" --datadir=$HOME/.bitcoin-abc --rpcallowip=127.0.0.1"
-		PORT_ARG=" --rpcbind=127.0.0.1:8442" EXEC_SUF='-abc' ;;
-	B2X) echo 'Running BTC1 2X HF client!'
-	   ADD_ARGS+=" --datadir=$HOME/.bitcoin-2x --rpcallowip=127.0.0.1"
-	   PORT_ARG=" --rpcbind=127.0.0.1:8338" EXEC_SUF='-2x' ;;
+		ADD_ARGS+=" --datadir=$HOME/.bitcoin-abc --rpcallowip=127.0.0.1 --usecashaddr=0"
+		PORT_ARG=" --rpcbind=127.0.0.1:8442"
+		DAEMON_NAME='bitcoind-abc' ;;
 	LTC) echo 'Running Litecoin client!'
-	   TW_FILE='mmgen-tracking-wallet-ltc.dat'
-	   DAEMON_NAME='litecoind' ;;
+		TW_FILE='mmgen-tracking-wallet-ltc.dat'
+		DAEMON_NAME='litecoind' ;;
 esac
 
 [ "$ONION" ] && echo 'Running a Tor exclusively onion node!'
@@ -80,7 +79,7 @@ fi
 	DB_CACHE_ARG=
 }
 
-CMD="$DAEMON_NAME$EXEC_SUF --daemon --wallet=$TW_FILE$DB_CACHE_ARG$NOLISTEN_ARG$ADD_ARGS$PORT_ARG"
+CMD="$DAEMON_NAME --daemon --wallet=$TW_FILE$DB_CACHE_ARG$NOLISTEN_ARG$ADD_ARGS$PORT_ARG"
 if [ "$TESTING" ]; then MSG='Would execute'; else MSG='Executing'; fi
 echo "$MSG: $CMD"
 [ ! "$TESTING" ] && eval $CMD

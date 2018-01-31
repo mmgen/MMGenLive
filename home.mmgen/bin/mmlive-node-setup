@@ -571,11 +571,12 @@ else # entry point
 	[ "$HDD" -o "$GRUB_CFG_HDSYS_SETUP" ] || {
 		do_setup_user
 		if hdd_install_exists; then
-			msg 'Existing MMGen hard drive installation detected.  Exiting'
-		else
-			echo -n "$HD_INSTALL_MSG"; read
-			eval "sudo $0 --self-called -d"
+			msg 'Existing MMGen hard drive installation detected.'
+			echo -n 'Continue anyway? (ENTER to continue, Ctrl-C to exit): '
+			read
 		fi
+		echo -n "$HD_INSTALL_MSG"; read
+		eval "sudo $0 --self-called -d"
 		bmsg 'Done'
 	}
 #	gmsg 'Press ENTER to exit'; read

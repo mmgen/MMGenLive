@@ -1,9 +1,7 @@
 #!/bin/bash
 
 PROGNAME=`basename $0`
-DESC='Bitcoin Core'
-CLI_NAME='bitcoin-cli'
-COINS='BTC BCH LTC B2X'
+COINS='BTC BCH LTC'
 COIN='BTC'
 
 while getopts hc:et OPT
@@ -27,11 +25,10 @@ done
 shift $((OPTIND-1))
 
 case "$COIN" in
-	LTC) DESC='Litecoin' CLI_NAME='litecoin-cli' ;;
-	BCH) DESC='Bitcoin ABC (BCH)' PORT_ARG=' --rpcport=8442'
-	   ADD_ARGS+=" -datadir=$HOME/.bitcoin-abc" ;;
-	B2X) DESC='BTC1 (B2X)' PORT_ARG=' --rpcport=8338'
-	   ADD_ARGS+=" -datadir=$HOME/.bitcoin-2x" ;;
+	BTC) DESC='Bitcoin Core'      CLI_NAME='bitcoin-cli' ;;
+	LTC) DESC='Litecoin'          CLI_NAME='litecoin-cli' ;;
+	BCH) DESC='Bitcoin ABC (BCH)' CLI_NAME='bitcoin-cli'
+		PORT_ARG=' --rpcport=8442' ADD_ARGS+=" -datadir=$HOME/.bitcoin-abc" ;;
 esac
 
 [ "$TESTNET" -a "$COIN" == 'BCH' ] && PORT_ARG=' --rpcport=18442'
