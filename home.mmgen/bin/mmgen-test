@@ -16,8 +16,8 @@ done
 shift $((OPTIND-1))
 
 bitcoin-cli getbalance >/dev/null 2>&1 || {
-    echo 'You must start bitcoind before running the tests'
-    exit
+	echo 'You must start bitcoind before running the tests'
+	exit
 }
 
 cd ~/src/mmgen-*

@@ -49,12 +49,12 @@ cf_write() {
 		cat $SED_OUT > $OUT
 	elif [ "$ACTION" == 'edit' ]; then
 		sed "s/$TEXT/${REPL//\//\\/}/" $IN > $SED_OUT
-        if diff $IN $SED_OUT >/dev/null; then
-            return 1
-        else
-            su -c "cat $SED_OUT > $OUT"
-            return 0
-        fi
+		if diff $IN $SED_OUT >/dev/null; then
+			return 1
+		else
+			su -c "cat $SED_OUT > $OUT"
+			return 0
+		fi
 	elif [ "$ACTION" == 'insert' ]; then # insert REPL before first occurrence of TEXT
 		LNUM=$(grep -n -m1 "$TEXT" $IN | sed 's/:.*//')
 		(head -n$((LNUM-1)) $IN; echo "$REPL"; tail -n+$LNUM $IN) > $SED_OUT
@@ -70,7 +70,7 @@ cf_insert()    { cf_write "$@"; }
 
 usb_system_running() {
 	ub=($(lsblk -l -o NAME,LABEL | grep MMGEN_BOOT)) ur=${ub%1}2
- 	ROOT_DEV=$(sudo cryptsetup status root_fs | grep device | awk '{print $2}')
+	ROOT_DEV=$(sudo cryptsetup status root_fs | grep device | awk '{print $2}')
 	[ "$ROOT_DEV" == "/dev/$ur" ]
 }
 
@@ -117,4 +117,9 @@ daemon_upgrade() {
 		eval "$BUILD_SYSTEM $TARGET 'IN_MMLIVE_SYSTEM=1' 'BITCOIND_CHKSUM=$CHKSUM' 'VER=$VERSION' 'SUBVER=$SUBVERSION' 'DLDIR_URL=$DLDIR_URL' 'ARCHIVE=$ARCHIVE'"
 	fi
 	)
+}
+
+count_disk_passwds() {
+	dev=$(sudo cryptsetup status root_fs | grep device | awk '{print $2}')
+	sudo cryptsetup luksDump $dev | grep -i slot | grep ENABLED | wc -l
 }

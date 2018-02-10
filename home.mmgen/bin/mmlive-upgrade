@@ -39,26 +39,26 @@ do
 		echo   "    '-S'   Skip verification of PGP signatures"
 		echo   "    '-T'   Connect via Tor (through privoxy)"
 		exit ;;
-	d) GEN_DOCS=1 ;;
-	g) GIT_UPDATE_ONLY=1 ;;
-	G) ONLINE= ;;
-	p) PROXY=$OPTARG
-	   PIP="$PIP --proxy=$OPTARG"
-	   CURL="$CURL -x $OPTARG"
-	   GIT="all_proxy=$OPTARG $GIT"
-	   APT_GET="https_proxy=$OPTARG http_proxy=$OPTARG $APT_GET"
-	   BUILD_SYSTEM="$BUILD_SYSTEM -P $OPTARG"
-	   LYNX="https_proxy=$OPTARG http_proxy=$OPTARG $LYNX" ;;
-	s) SKIP_COMMIT_AUTH=1 ;;
-	s) SKIP_PGP_VERIFY=1 ;;
-	T) TOR='localhost:9050'
-	   PIP="$PIP --proxy=$PRIVOXY"
-	   CURL="$CURL -x $PRIVOXY"
-	   GIT="all_proxy=$PRIVOXY $GIT"
-	   APT_GET="https_proxy=$PRIVOXY http_proxy=$PRIVOXY $APT_GET"
-	   BUILD_SYSTEM="$BUILD_SYSTEM -P $PRIVOXY"
-	   LYNX="https_proxy=$PRIVOXY http_proxy=$PRIVOXY $LYNX" ;;
-	*) exit ;;
+	d)  GEN_DOCS=1 ;;
+	g)  GIT_UPDATE_ONLY=1 ;;
+	G)  ONLINE= ;;
+	p)  PROXY=$OPTARG
+		PIP="$PIP --proxy=$OPTARG"
+		CURL="$CURL -x $OPTARG"
+		GIT="all_proxy=$OPTARG $GIT"
+		APT_GET="https_proxy=$OPTARG http_proxy=$OPTARG $APT_GET"
+		BUILD_SYSTEM="$BUILD_SYSTEM -P $OPTARG"
+		LYNX="https_proxy=$OPTARG http_proxy=$OPTARG $LYNX" ;;
+	s)  SKIP_COMMIT_AUTH=1 ;;
+	s)  SKIP_PGP_VERIFY=1 ;;
+	T)  TOR='localhost:9050'
+		PIP="$PIP --proxy=$PRIVOXY"
+		CURL="$CURL -x $PRIVOXY"
+		GIT="all_proxy=$PRIVOXY $GIT"
+		APT_GET="https_proxy=$PRIVOXY http_proxy=$PRIVOXY $APT_GET"
+		BUILD_SYSTEM="$BUILD_SYSTEM -P $PRIVOXY"
+		LYNX="https_proxy=$PRIVOXY http_proxy=$PRIVOXY $LYNX" ;;
+	*)  exit ;;
 	esac
 done
 

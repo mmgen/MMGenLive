@@ -310,11 +310,11 @@ umount_new_root() {
 	umount -l /mnt/hd_root/boot 2>/dev/null
 	sleep 1
 	umount /mnt/hd_root/boot 2>/dev/null
- 	exec_or_die "if mountpoint -q /mnt/hd_root/boot; then false; else true; fi"
+	exec_or_die "if mountpoint -q /mnt/hd_root/boot; then false; else true; fi"
 	umount -l /mnt/hd_root 2>/dev/null
 	sleep 1
 	umount /mnt/hd_root 2>/dev/null
- 	exec_or_die "if mountpoint -q /mnt/hd_root; then false; else true; fi"
+	exec_or_die "if mountpoint -q /mnt/hd_root; then false; else true; fi"
 	sleep 2
 	msg "Closing encrypted system partition foo (/dev/$HD_ROOT)"
 	cryptsetup luksClose foo 2>/dev/null
@@ -327,26 +327,26 @@ mount_live_root() {
 }
 umount_live_root() {
 	umount /mnt/usb_root 2>/dev/null
- 	exec_or_die "if mountpoint -q /mnt/usb_root; then false; else true; fi"
+	exec_or_die "if mountpoint -q /mnt/usb_root; then false; else true; fi"
 }
 umount_vfs() {
 	bmsg 'Unmounting virtual filesystems'
 	umount -l /mnt/hd_root/dev /mnt/hd_root/proc /mnt/hd_root/sys 2>/dev/null
 	umount /mnt/hd_root/dev /mnt/hd_root/proc /mnt/hd_root/sys 2>/dev/null
- 	exec_or_die "if mountpoint -q /mnt/hd_root/dev; then false; else true; fi"
- 	exec_or_die "if mountpoint -q /mnt/hd_root/proc; then false; else true; fi"
- 	exec_or_die "if mountpoint -q /mnt/hd_root/sys; then false; else true; fi"
+	exec_or_die "if mountpoint -q /mnt/hd_root/dev; then false; else true; fi"
+	exec_or_die "if mountpoint -q /mnt/hd_root/proc; then false; else true; fi"
+	exec_or_die "if mountpoint -q /mnt/hd_root/sys; then false; else true; fi"
 }
 mount_vfs() {
 	bmsg 'Mounting virtual filesystems'
- 	mount -o rbind /dev /mnt/hd_root/dev 2>/dev/null
- 	mount -t proc proc /mnt/hd_root/proc 2>/dev/null
- 	mount -t sysfs sys /mnt/hd_root/sys 2>/dev/null
- 	exec_or_die "mountpoint -q /mnt/hd_root/dev && mountpoint -q /mnt/hd_root/proc && mountpoint -q /mnt/hd_root/sys"
+	mount -o rbind /dev /mnt/hd_root/dev 2>/dev/null
+	mount -t proc proc /mnt/hd_root/proc 2>/dev/null
+	mount -t sysfs sys /mnt/hd_root/sys 2>/dev/null
+	exec_or_die "mountpoint -q /mnt/hd_root/dev && mountpoint -q /mnt/hd_root/proc && mountpoint -q /mnt/hd_root/sys"
 }
 copy_root_files() {
 	bmsg 'Copying root partition files'
- 	exec_or_die "mountpoint -q /mnt/hd_root"
+	exec_or_die "mountpoint -q /mnt/hd_root"
 	umount_vfs
 	exec_or_die "(cd /mnt/usb_root && rsync -av * /mnt/hd_root && bmsg 'Done copying')"
 }
@@ -359,10 +359,10 @@ UUID=%s          /boot    vfat     errors=remount-ro 0 2
 # udev                     /dev     devtmpfs defaults 0 0
 # devpts                   /dev/pts devpts   defaults 0 0
 UUID=%s /mnt/disk1 ext4 defaults 0 2'
- 	exec_or_die "mountpoint -q /mnt/hd_root"
+	exec_or_die "mountpoint -q /mnt/hd_root"
 	printf "$new_fstab\n" $HD_BOOT_UUID $HD_BLKCHAIN_UUID > /mnt/hd_root/etc/fstab
- 	exec_or_die "rm /mnt/hd_root/etc/resolv.conf"
- 	exec_or_die "cp /etc/resolv.conf /mnt/hd_root/etc"
+	exec_or_die "rm /mnt/hd_root/etc/resolv.conf"
+	exec_or_die "cp /etc/resolv.conf /mnt/hd_root/etc"
 }
 install_grub() {
 	grub_install_chroot='#/bin/bash
@@ -473,7 +473,7 @@ Continue anyway? (ENTER to continue, Ctrl-C to exit): "
 }
 hdd_install_running() { # runs as user
 	HDD_INSTALL_RUNNING_MSG='The MMGen system already is already installed and running on the hard drive.'
- 	ROOT_DEV=$(sudo cryptsetup status root_fs | grep device | awk '{print $2}')
+	ROOT_DEV=$(sudo cryptsetup status root_fs | grep device | awk '{print $2}')
 	hb=($(lsblk -l -o NAME,LABEL | grep MMGEN_HBOOT))
 	hr=${hb%1}2
 	[ "$ROOT_DEV" = "/dev/$hr" ]

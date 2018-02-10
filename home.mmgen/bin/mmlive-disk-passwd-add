@@ -1,19 +1,22 @@
 #!/bin/bash
 
+. ~/scripts/include/functions.sh
+
 PROGNAME=`basename $0`
-while getopts h OPT
+while getopts hc OPT
 do
 	case "$OPT" in
 	h)  printf "  %-16s Add a disk password\n" "${PROGNAME^^}:"
 		echo   "  USAGE:           $PROGNAME [options]"
 		echo   "  OPTIONS:   '-h'  Print this help message"
-        echo
+		echo   "             '-c'  Display the number of existing disk passwords and exit"
+		echo
 		echo   "  It's possible to have more than one disk password."
 		echo
-		echo   "  This script adds a new disk password without removing the existing one"
-		echo   "  (or ones).  If you wish to remove an existing disk password after you've"
-        echo   "  added a new one, run the command 'disk-passwd-remove' afterwards."
+		echo   "  This script adds a new disk password without removing any existing one."
+		echo   "  Run 'disk-passwd-remove' to remove an existing disk password."
 		exit ;;
+	c)  echo -n 'Existing disk passwords: '; count_disk_passwds; exit ;;
 	*)  exit ;;
 	esac
 done

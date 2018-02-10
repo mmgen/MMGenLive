@@ -19,9 +19,9 @@ shift $((OPTIND-1))
 . ~/scripts/include/functions.sh
 
 case $DO_WHAT in
-    enable)  PAT="^# autologin=$USER" REPL="autologin=$USER" ;;
-    disable) PAT="^autologin=$USER" REPL="# autologin=$USER" ;;
-    *) echo "$PROGNAME: invalid script name"; exit ;;
+	enable)  PAT="^# autologin=$USER" REPL="autologin=$USER" ;;
+	disable) PAT="^autologin=$USER" REPL="# autologin=$USER" ;;
+	*) echo "$PROGNAME: invalid script name"; exit ;;
 esac
 
 cf_edit '/etc/lxdm/lxdm.conf' "$PAT" "$REPL" || M=' already'

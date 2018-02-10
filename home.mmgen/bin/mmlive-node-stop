@@ -15,7 +15,7 @@ do
 		echo   "             '-t'   Testing mode.  Just print the command that would be executed"
 		exit ;;
 	c) COIN=${OPTARG^^}
-       echo $COINS | grep -q -- "\<$COIN\>" || { echo "'$COIN': unrecognized coin"; exit; } ;;
+		echo $COINS | grep -q -- "\<$COIN\>" || { echo "'$COIN': unrecognized coin"; exit; } ;;
 	e) TESTNET=1 ADD_ARGS+=' --testnet=1' ;;
 	t) TESTING=1 ;;
 	*)  exit ;;

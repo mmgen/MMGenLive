@@ -21,8 +21,8 @@ CMD_OUT=`rfkill list $WITH_WHAT`
 declare -A ACTION=([enable]='unblock' [disable]='block')
 
 if sudo rfkill ${ACTION[$DO_WHAT]} $WITH_WHAT; then
-    echo "${WITH_WHAT^} successfully ${DO_WHAT}d"
-    rfkill list $WITH_WHAT
+	echo "${WITH_WHAT^} successfully ${DO_WHAT}d"
+	rfkill list $WITH_WHAT
 else
-    echo "${WITH_WHAT^} could not be ${DO_WHAT}d"
+	echo "${WITH_WHAT^} could not be ${DO_WHAT}d"
 fi

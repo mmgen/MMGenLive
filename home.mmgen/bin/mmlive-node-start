@@ -25,20 +25,20 @@ do
 		echo   "            '-O'   Run exclusively on the Tor onion network (Tor must be running)"
 		echo   "            '-T'   Run a Tor (non-onion) node (Tor must be running)"
 		exit ;;
-	a) ADD_ARGS+=" $OPTARG" ;;
-	c) COIN=${OPTARG^^}
-       echo $COINS | grep -q -- "\<$COIN\>" || { echo "'$COIN': unrecognized coin"; exit; } ;;
-	d) DB_CACHE_ARG=" --dbcache=$OPTARG" ;;
-	D) NO_DB_CACHE_ARG=1 ;;
-	e) TESTNET=1 ADD_ARGS+=" --testnet=1" ;;
-	i) ADD_ARGS+=" --txindex" ;;
-	m) TWO_DAEMONS=1 ;;
-	o) echo 'Running in offline mode' 
-	   ADD_ARGS+=" --maxconnections=0" ;;
-	s) ADD_ARGS+=" --addnode=$OPTARG" ;;
-	t) TESTING=1 ;;
-	O) ONION=1 ADD_ARGS+=" --onlynet=onion --debug=tor" NOLISTEN_ARG= ;;
-	T) TOR=1 ADD_ARGS+=" --listenonion=0 --onlynet=ipv4 --debug=tor --proxy=127.0.0.1:9050" ;;
+	a)  ADD_ARGS+=" $OPTARG" ;;
+	c)  COIN=${OPTARG^^}
+		echo $COINS | grep -q -- "\<$COIN\>" || { echo "'$COIN': unrecognized coin"; exit; } ;;
+	d)  DB_CACHE_ARG=" --dbcache=$OPTARG" ;;
+	D)  NO_DB_CACHE_ARG=1 ;;
+	e)  TESTNET=1 ADD_ARGS+=" --testnet=1" ;;
+	i)  ADD_ARGS+=" --txindex" ;;
+	m)  TWO_DAEMONS=1 ;;
+	o)  echo 'Running in offline mode'
+		ADD_ARGS+=" --maxconnections=0" ;;
+	s)  ADD_ARGS+=" --addnode=$OPTARG" ;;
+	t)  TESTING=1 ;;
+	O)  ONION=1 ADD_ARGS+=" --onlynet=onion --debug=tor" NOLISTEN_ARG= ;;
+	T)  TOR=1 ADD_ARGS+=" --listenonion=0 --onlynet=ipv4 --debug=tor --proxy=127.0.0.1:9050" ;;
 	*)  exit ;;
 	esac
 done
@@ -70,8 +70,8 @@ if [ ! "$DB_CACHE_ARG" -a ! "$NO_DB_CACHE_ARG" ]; then
 	M=$(cat /proc/meminfo | grep MemAvailable | awk '{ print $2 }')
 	M=$(((M / 1024) - 3000))
 	[ "$TWO_DAEMONS" ] && { M=$((M / 2)); echo 'Reducing memory usage for dual-node setup'; }
-	[ $M -gt 5000 ]    && M=5000 
-	[ $M -lt 300 ]     && M= 
+	[ $M -gt 5000 ]    && M=5000
+	[ $M -lt 300 ]     && M=
 	[ "$M" ] && DB_CACHE_ARG=" --dbcache=$M"
 fi
 [ "$NO_DB_CACHE_ARG" ] && {

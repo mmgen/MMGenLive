@@ -22,16 +22,16 @@ do
 		echo   "    '-p h' Connect via proxy 'p' (protocol://host:port)"
 		echo   "    '-T'   Connect via Tor (through privoxy)"
 		exit ;;
-	c) COIN=${OPTARG^^}
-       echo $COINS | grep -q -- "\<$COIN\>" || { echo "'$COIN': unrecognized coin"; exit; } ;;
-	p) PROXY=$OPTARG
-	   CURL="$CURL -x $OPTARG"
-	   BUILD_SYSTEM="$BUILD_SYSTEM -P $OPTARG"
-	   LYNX="https_proxy=$OPTARG http_proxy=$OPTARG $LYNX" ;;
-	T) TOR='localhost:9050'
-	   CURL="$CURL -x $PRIVOXY"
-	   BUILD_SYSTEM="$BUILD_SYSTEM -P $PRIVOXY"
-	   LYNX="https_proxy=$PRIVOXY http_proxy=$PRIVOXY $LYNX" ;;
+	c)  COIN=${OPTARG^^}
+		echo $COINS | grep -q -- "\<$COIN\>" || { echo "'$COIN': unrecognized coin"; exit; } ;;
+	p)  PROXY=$OPTARG
+		CURL="$CURL -x $OPTARG"
+		BUILD_SYSTEM="$BUILD_SYSTEM -P $OPTARG"
+		LYNX="https_proxy=$OPTARG http_proxy=$OPTARG $LYNX" ;;
+	T)  TOR='localhost:9050'
+		CURL="$CURL -x $PRIVOXY"
+		BUILD_SYSTEM="$BUILD_SYSTEM -P $PRIVOXY"
+		LYNX="https_proxy=$PRIVOXY http_proxy=$PRIVOXY $LYNX" ;;
 	*) exit ;;
 	esac
 done
