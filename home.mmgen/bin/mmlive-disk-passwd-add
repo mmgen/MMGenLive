@@ -14,7 +14,7 @@ do
 		echo   "  It's possible to have more than one disk password."
 		echo
 		echo   "  This script adds a new disk password without removing any existing one."
-		echo   "  Run 'disk-passwd-remove' to remove an existing disk password."
+		echo   "  Run 'mmlive-disk-passwd-remove' to remove an existing disk password."
 		exit ;;
 	c)  echo -n 'Existing disk passwords: '; count_disk_passwds; exit ;;
 	*)  exit ;;

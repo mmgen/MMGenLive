@@ -12,7 +12,7 @@ do
 		echo   "             '-c'  Display the number of existing disk passwords and exit"
 		echo
 		echo   "  This script removes an existing disk password.  You must first add a new"
-		echo   "  password using 'disk-passwd-add' before you can use it."
+		echo   "  password using 'mmlive-disk-passwd-add' before you can use it."
 		echo
 		echo   "  NOTE: You'll be warned if you attempt to remove the only remaining password"
 		echo   "  for the disk."
