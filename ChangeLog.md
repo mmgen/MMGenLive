@@ -1,5 +1,8 @@
 ## ChangeLog
 
+### v0.0.7y
++ Update MMGen signing keys (add DSA key)
+
 ### v0.0.7x
 + Upgrade kernel and microcode with Meltdown and Spectre fixes
 + Install MMGen v0.9.6 dependencies
@@ -63,6 +66,7 @@
 
 ### v0.0.7e
 + Add environment vars http_proxy, etc. to '/etc/sudoers'
++ Upgrade Ubuntu system
 + Install kramdown and elinks
 + Auto-generate documentation if wiki has changed
 
