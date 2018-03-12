@@ -19,15 +19,16 @@ shift $((OPTIND-1))
 
 
 NODES=(bitcoinranliixsu.onion
+bitcoin4rlfa4wqx.onion
+xoxoxka3hgpokemn.onion
+smith4mfhwcq7x3b.onion
 xudkoztdfrsuyyou.onion
 z33nukt7ngik3cpe.onion
 74k54a55qbo2t34y.onion
 fvpg7ltseahre7jj.onion
 pcfhsdqzs6q63ryu.onion
-xoxoxka3hgpokemn.onion
 nkf5e6b7pl4jfd4a.onion
 fnh6hqbwlu227vxx.onion
-smith4mfhwcq7x3b.onion
 cpyfqbs4fs3vnbpf.onion
 ueo6royc3775ioq7.onion
 in7r5ieo7ogkxbne.onion

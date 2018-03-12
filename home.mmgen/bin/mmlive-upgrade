@@ -113,7 +113,7 @@ gen_docs() {
 	(
 		echo "Generating documentation from $1"
 		cd ${REPOS['sys']% *}
-		sudo ./build_system.sh setup_sh_usb_create_docs 'IN_MMLIVE_SYSTEM=1'
+		$BUILD_SYSTEM setup_sh_usb_create_docs 'IN_MMLIVE_SYSTEM=1'
 	)
 }
 
@@ -141,7 +141,11 @@ git_update() {
 		cd $repo_dir
 		gecho "Checking $repo_url"
 		cloned=
-		[ -d '.git' ] || { eval "$GIT clone $repo_url ."; cloned=1; }
+		[ -d '.git' ] || {
+			eval "$GIT clone $repo_url ."
+			[ $repo == 'sys' ] && import_pubkey2_maybe
+			cloned=1
+		}
 		cur_branch=$(git branch --color=never | grep '*' | awk '{ print $2 }')
 		git checkout -q master
 		OLD_LAST_COMMIT=$(git log --oneline --color=never --no-merges --pretty=%h | head -n1)
@@ -180,6 +184,19 @@ do_version_upgrade() {
 	echo 'System is up-to-date'
 }
 
+import_pubkey2_maybe() { # R8
+	[ -e ~/.pubkey2_imported ] && return
+	gpg --list-key 'mmgen@tuta.io' >/dev/null 2>&1 || (
+			cd /setup/git/MMGenLive
+			cmd='setup_sh_usb_import_signing_keys'
+			grep -q $cmd build_system.sh && {
+				echo "Importing DSA signing key"
+				$BUILD_SYSTEM $cmd 'IN_MMLIVE_SYSTEM=1'
+			}
+	)
+	gpg --list-key 'mmgen@tuta.io' >/dev/null 2>&1 && touch ~/.pubkey2_imported
+}
+
 expand_partition_maybe() {
 	usb_system_running || return 0
 	[ -e ~/.partition_expanded ] && return 0
@@ -202,7 +219,7 @@ upgrade_mmgen_maybe() {
 	(
 		cd $REPO_ROOT
 		cmd='chroot_install_mmgen_user_at_commit'
-		eval "$BUILD_SYSTEM $cmd 'IN_MMLIVE_SYSTEM=1' 'MMGEN_COMMIT=v$target_ver'"
+		$BUILD_SYSTEM $cmd 'IN_MMLIVE_SYSTEM=1' "MMGEN_COMMIT=v$target_ver"
 	)
 }
 
@@ -215,6 +232,7 @@ which privoxy >/dev/null || bash $REPO_ROOT/upgrade/$MY_VER/upgrade-c.sh # R8
 [ "$GEN_DOCS" ] && exit
 
 [ "$ONLINE" -a ! "$REEXEC" ] && {
+	import_pubkey2_maybe
 	git_update
 	# script may have changed, so re-exec with original args, skipping git update
 	exec $0 --reexec $ARGV

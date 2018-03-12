@@ -192,7 +192,7 @@ create_twallet() {
 	exec_or_die "rm -rf $TMP_DATA_DIR"
 	exec_or_die "mkdir -p $TMP_DATA_DIR"
 
-	exec_or_die "bitcoind -daemon -maxconnections=0 -listen=0 -datadir=$TMP_DATA_DIR -wallet=$TW_FILE"
+	exec_or_die "bitcoind --daemon --connect=0 --listen=0 --datadir=$TMP_DATA_DIR --wallet=$TW_FILE"
 
 	echo -n 'Generating tracking wallet.'
 	while true; do
@@ -204,7 +204,7 @@ create_twallet() {
 	exec_or_die "sync"
 	exec_or_die "sleep 3"
 	exec_or_die "sync"
-	exec_or_die "bitcoin-cli -datadir=$TMP_DATA_DIR stop"
+	exec_or_die "bitcoin-cli --datadir=$TMP_DATA_DIR stop"
 	exec_or_die "sync"
 }
 MMGEN_DATA_DIR="$HOME/.mmgen"

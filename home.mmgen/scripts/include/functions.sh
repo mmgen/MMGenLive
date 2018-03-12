@@ -78,16 +78,16 @@ daemon_upgrade_set_vars() {
 	case $COIN in
 		BTC)
 			DESC='Bitcoin Core'
-			VERSION='0.15.1'
-			CHKSUM='387c2e12c67250892b0814f26a5a38f837ca8ab68c86af517f975a2a2710225b'
+			VERSION='0.16.0'
+			CHKSUM='e6322c69bcc974a29e6a715e0ecb8799d2d21691d683eeb8fef65fc5f6a66477'
 			DAEMON_NAME='bitcoind' ;;
 		LTC)
 			DESC='Litecoin'
-			VERSION='0.15.0.1'
+			VERSION='0.15.1'
 			SUBVERSION=''
-			CHKSUM='b47171844cbd653cea95de5339259c484f94c5ec2ef69575b78207447b3c763f'
-			DLDIR_URL="https://download.litecoin.org/litecoin-${VERSION}rc1/linux"
-			ARCHIVE='litecoin-0.15.0-x86_64-linux-gnu.tar.gz'
+			CHKSUM='77062f7bad781dd6667854b3c094dbf51094b33405c6cd25c36d07e0dd5e92e5'
+			DLDIR_URL="https://download.litecoin.org/litecoin-${VERSION}/linux"
+			ARCHIVE='litecoin-0.15.1-x86_64-linux-gnu.tar.gz'
 			DAEMON_NAME='litecoind' ;;
 		BCH)
 			DESC='Bitcoin ABC'

@@ -34,7 +34,7 @@ do
 	i)  ADD_ARGS+=" --txindex" ;;
 	m)  TWO_DAEMONS=1 ;;
 	o)  echo 'Running in offline mode'
-		ADD_ARGS+=" --maxconnections=0" ;;
+		ADD_ARGS+=" --connect=0" ;;
 	s)  ADD_ARGS+=" --addnode=$OPTARG" ;;
 	t)  TESTING=1 ;;
 	O)  ONION=1 ADD_ARGS+=" --onlynet=onion --debug=tor" NOLISTEN_ARG= ;;
@@ -55,6 +55,7 @@ case "$COIN" in
 		PORT_ARG=" --rpcbind=127.0.0.1:8442"
 		DAEMON_NAME='bitcoind-abc' ;;
 	LTC) echo 'Running Litecoin client!'
+		ADD_ARGS+=' --mempoolreplacement=1'
 		TW_FILE='mmgen-tracking-wallet-ltc.dat'
 		DAEMON_NAME='litecoind' ;;
 esac

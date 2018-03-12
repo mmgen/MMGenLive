@@ -1,7 +1,7 @@
 ## ChangeLog
 
 ### v0.0.7y
-+ Update MMGen signing keys (add DSA key)
++ No-OP
 
 ### v0.0.7x
 + Upgrade kernel and microcode with Meltdown and Spectre fixes
