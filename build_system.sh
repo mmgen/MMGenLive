@@ -876,13 +876,18 @@ function unpack_and_install_bitcoind {
 	gmsg 'Unpacking and installing coin daemon'
 	exec_or_die 'rm -rf unpack'
 	exec_or_die 'mkdir -p unpack'
-	tar -C unpack -xzf $ARCHIVE || {
+	tar -C unpack -xaf $ARCHIVE || {
 		rm -f $ARCHIVE
 		ymsg 'Archive could not be unpacked, so it was deleted.  Exiting.'; die
 	}
 	(
-		exec_or_die "cd unpack/*/bin/"
-		for f in *coind *coin-cli; do
+		if [ ${ARCHIVE:0:6} = 'monero' ]; then
+			ARCH_DIR="unpack/monero-v$VER" BINS="monerod *-cli"
+		else
+			ARCH_DIR="unpack/*/bin" BINS="*coind *-cli"
+		fi
+		exec_or_die "cd $ARCH_DIR"
+		for f in $BINS; do
 			exec_or_die "cp -vf $f $INSTALL_PREFIX/usr/local/bin/$f$SUBVER"
 		done
 	)

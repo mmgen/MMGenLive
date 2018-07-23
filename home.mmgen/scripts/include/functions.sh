@@ -92,12 +92,21 @@ daemon_upgrade_set_vars() {
 			DAEMON_NAME='litecoind' ;;
 		BCH)
 			DESC='Bitcoin ABC'
-			VERSION='0.16.2'
+			VERSION='0.17.2'
 			SUBVERSION='-abc'
-			CHKSUM='5eeadea9c23069e08d18e0743f4a86a9774db7574197440c6d795fad5cad2084'
+#			CHKSUM='5eeadea9c23069e08d18e0743f4a86a9774db7574197440c6d795fad5cad2084' # 0.16.2
+			CHKSUM='aa8961e11139ea071e1884e9604e67611b48ee76cdf55d05f9a8dfe25d8feeae' # 0.17.2
 			DLDIR_URL="https://download.bitcoinabc.org/$VERSION/linux"
 			ARCHIVE="bitcoin-abc-${VERSION}-x86_64-linux-gnu.tar.gz"
 			DAEMON_NAME='bitcoind-abc' ;;
+		XMR)
+			DESC='Monerod'
+			VERSION='0.12.3.0'
+			CHKSUM='72fe937aa2832a0079767914c27671436768ff3c486597c3353a8567d9547487'
+			# https://getmonero.org/downloads/#linux
+			DLDIR_URL='https://dlsrc.getmonero.org/cli'
+			ARCHIVE="monero-linux-x64-v${VERSION}.tar.bz2"
+			DAEMON_NAME='monerod' ;;
 	esac
 }
 
