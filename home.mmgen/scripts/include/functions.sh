@@ -107,11 +107,19 @@ daemon_upgrade_set_vars() {
 			DLDIR_URL='https://dlsrc.getmonero.org/cli'
 			ARCHIVE="monero-linux-x64-v${VERSION}.tar.bz2"
 			DAEMON_NAME='monerod' ;;
+		ETH)
+			DESC='Parity'
+			VERSION='1.11.7'
+			CHKSUM='792fc2fa2c5653194764218076d86f1c8ea81d3f9410892aae171ec94fe20b1e'
+			# https://releases.parity.io/v1.11.7/x86_64-unknown-linux-gnu/parity_1.11.7_ubuntu_amd64.deb.sha256
+			DLDIR_URL="https://releases.parity.io/v${VERSION}/x86_64-unknown-linux-gnu"
+			ARCHIVE="parity_${VERSION}_ubuntu_amd64.deb"
+			DAEMON_NAME='parity' ;;
 	esac
 }
 
 daemon_test_installed() {
-	$DAEMON_NAME --version | grep -q v${VERSION//./\\.} && return 0
+	$DAEMON_NAME --version | grep -q "v${VERSION//./\\.}\>" && return 0
 	return 1
 }
 

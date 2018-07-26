@@ -871,6 +871,11 @@ function retrieve_bitcoind { # retrieves to current directory
 	fi
 }
 function unpack_and_install_bitcoind {
+	if [ ${ARCHIVE: -4} == '.deb' ]; then
+		gmsg 'Installing coin daemon deb file'
+		exec_or_die "dpkg -i $ARCHIVE"
+		return
+	fi
 	[ "$1" ] || die "You must specify an install prefix"
 	INSTALL_PREFIX=${1%/}
 	gmsg 'Unpacking and installing coin daemon'
