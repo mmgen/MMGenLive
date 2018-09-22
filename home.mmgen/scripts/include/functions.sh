@@ -78,9 +78,9 @@ daemon_upgrade_set_vars() {
 	case $COIN in
 		BTC)
 			DESC='Bitcoin Core'
-			VERSION='0.16.1'
+			VERSION='0.16.3'
 			# https://github.com/bitcoin-core/gitian.sigs
-			CHKSUM='10b31d17351ff4c7929cf955e4d24a2398b0ce91509f707faf8596940c12432a'
+			CHKSUM='5d422a9d544742bc0df12427383f9c2517433ce7b58cf672b9a9b17c2ef51e4f'
 			DAEMON_NAME='bitcoind' ;;
 		LTC)
 			DESC='Litecoin'
@@ -92,10 +92,11 @@ daemon_upgrade_set_vars() {
 			DAEMON_NAME='litecoind' ;;
 		BCH)
 			DESC='Bitcoin ABC'
-			VERSION='0.17.2'
+			VERSION='0.18.2'
 			SUBVERSION='-abc'
 #			CHKSUM='5eeadea9c23069e08d18e0743f4a86a9774db7574197440c6d795fad5cad2084' # 0.16.2
-			CHKSUM='aa8961e11139ea071e1884e9604e67611b48ee76cdf55d05f9a8dfe25d8feeae' # 0.17.2
+#			CHKSUM='aa8961e11139ea071e1884e9604e67611b48ee76cdf55d05f9a8dfe25d8feeae' # 0.17.2
+			CHKSUM='28d8511789a126aff16e256a03288948f2660c3c8cb0a4c809c5a8618a519a16' # 0.18.2
 			DLDIR_URL="https://download.bitcoinabc.org/$VERSION/linux"
 			ARCHIVE="bitcoin-abc-${VERSION}-x86_64-linux-gnu.tar.gz"
 			DAEMON_NAME='bitcoind-abc' ;;
