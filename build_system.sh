@@ -875,6 +875,12 @@ function unpack_and_install_bitcoind {
 		gmsg 'Installing coin daemon deb file'
 		exec_or_die "dpkg -i $ARCHIVE"
 		return
+	elif [ $ARCHIVE == 'parity' ]; then
+		gmsg 'Removing old parity installation'
+		exec_or_die 'apt-get --yes remove parity || true'
+		gmsg "Installing parity version $VER binary"
+		exec_or_die "install --verbose $ARCHIVE /usr/local/bin"
+		return
 	fi
 	[ "$1" ] || die "You must specify an install prefix"
 	INSTALL_PREFIX=${1%/}
