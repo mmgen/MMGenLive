@@ -78,9 +78,9 @@ daemon_upgrade_set_vars() {
 	case $COIN in
 		BTC)
 			DESC='Bitcoin Core'
-			VERSION='0.16.3'
+			VERSION='0.17.0'
 			# https://github.com/bitcoin-core/gitian.sigs
-			CHKSUM='5d422a9d544742bc0df12427383f9c2517433ce7b58cf672b9a9b17c2ef51e4f'
+			CHKSUM='9d6b472dc2aceedb1a974b93a3003a81b7e0265963bd2aa0acdcb17598215a4f'
 			DAEMON_NAME='bitcoind' ;;
 		LTC)
 			DESC='Litecoin'
