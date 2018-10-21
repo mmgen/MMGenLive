@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if which infocmp >/dev/null && infocmp $TERM 2>/dev/null | grep -q 'colors#256'; then
-	RED="\e[38;5;210m" YELLOW="\e[38;5;228m" GREEN="\e[38;5;157m"
+	RED="\e[38;5;210m" YELLOW="\e[38;5;229m" GREEN="\e[38;5;157m"
 	BLUE="\e[38;5;45m" RESET="\e[0m"
 else
 	RED="\e[31;1m" YELLOW="\e[33;1m" GREEN="\e[32;1m" BLUE="\e[34;1m" RESET="\e[0m"
@@ -102,8 +102,9 @@ daemon_upgrade_set_vars() {
 			DAEMON_NAME='bitcoind-abc' ;;
 		XMR)
 			DESC='Monerod'
-			VERSION='0.12.3.0'
-			CHKSUM='72fe937aa2832a0079767914c27671436768ff3c486597c3353a8567d9547487'
+			VERSION='0.13.0.2'
+#			CHKSUM='72fe937aa2832a0079767914c27671436768ff3c486597c3353a8567d9547487' # 0.12.3.0
+			CHKSUM='a59fc0fffb325b4f92a5b500438bf340ddbf78e91581eb4df95ad2d5e5fb42a8' # 0.13.0.2
 			# https://getmonero.org/downloads/#linux
 			DLDIR_URL='https://dlsrc.getmonero.org/cli'
 			ARCHIVE="monero-linux-x64-v${VERSION}.tar.bz2"
@@ -137,6 +138,30 @@ daemon_upgrade() {
 		eval "$BUILD_SYSTEM $TARGET 'IN_MMLIVE_SYSTEM=1' 'BITCOIND_CHKSUM=$CHKSUM' 'VER=$VERSION' 'SUBVER=$SUBVERSION' 'DLDIR_URL=$DLDIR_URL' 'ARCHIVE=$ARCHIVE'"
 	fi
 	)
+}
+
+relocate_tw_maybe() {
+	set -e
+	trap "recho 'An error occurred. Can not continue'" ERR
+
+	[ -e "$TW_DIR/wallet.dat" ] && return
+	mkdir -p "$TW_DIR"
+	[ -e "$DATA_DIR/$TW_FILE" ] || return 0
+
+	gecho "UPGRADE NOTICE: relocating $COIN ${TESTNET:+testnet }tracking wallet to encrypted partition"
+	/bin/cp "$DATA_DIR/$TW_FILE" "$TW_DIR/wallet.dat"
+	/bin/cp "$DATA_DIR/db.log" "$TW_DIR"
+	echo '  Your tracking wallet and associated files have been copied to the encrypted partition.'
+	echo -e "  New tracking wallet location: $YELLOW$TW_DIR/wallet.dat$RESET"
+	echo -e "  ${BLUE}It's now recommended to securely delete these files at the old location.$RESET"
+	echo    "  If you choose not to do this now, you may do so later with the command:"
+	echo -e "      ${YELLOW}wipe $DATA_DIR/$TW_FILE $DATA_DIR/db.log$RESET"
+	echo -n "  Delete tracking wallet at old location? (y/N): "
+	read -n 1
+	case "$REPLY" in
+		y|Y) echo; wipe -f "$DATA_DIR/$TW_FILE" "$DATA_DIR/db.log" ;;
+		*)  [ "$REPLY" ] && echo; becho 'Skipping wallet delete at user request' ;;
+	esac
 }
 
 count_disk_passwds() {

@@ -6,7 +6,7 @@ NOLISTEN_ARG=' --listen=0'
 COINS='BTC BCH LTC'
 COIN='BTC'
 
-while getopts ha:c:d:DeimoOs:tT OPT
+while getopts ha:c:d:DeimoORs:tT OPT
 do
 	case "$OPT" in
 	h)  printf "  %-16s Start a coin daemon\n" "${PROGNAME^^}:"
@@ -20,6 +20,7 @@ do
 		echo   "            '-i'   Run an indexing node (--txindex)"
 		echo   "            '-m'   Run daemon for a 2-node (multi-node) setup, with reduced memory usage"
 		echo   "            '-o'   Start in offline mode"
+		echo   "            '-R'   Relocate only.  Perform wallet relocation and exit immediately"
 		echo   "            '-s n' Try connecting to node 'n'"
 		echo   "            '-t'   Testing mode.  Just print the command that would be executed"
 		echo   "            '-O'   Run exclusively on the Tor onion network (Tor must be running)"
@@ -33,8 +34,8 @@ do
 	e)  TESTNET=1 ADD_ARGS+=" --testnet=1" ;;
 	i)  ADD_ARGS+=" --txindex" ;;
 	m)  TWO_DAEMONS=1 ;;
-	o)  echo 'Running in offline mode'
-		ADD_ARGS+=" --connect=0" ;;
+	o)  OFFLINE=1 ADD_ARGS+=" --connect=0" ;;
+	R)  RELOCATE_ONLY=1 ;;
 	s)  ADD_ARGS+=" --addnode=$OPTARG" ;;
 	t)  TESTING=1 ;;
 	O)  ONION=1 ADD_ARGS+=" --onlynet=onion --debug=tor" NOLISTEN_ARG= ;;
@@ -46,26 +47,45 @@ done
 shift $((OPTIND-1))
 
 case "$COIN" in
-	BTC) echo 'Running Bitcoin Core client!'
+	BTC) DAEMON_DESC='Bitcoin Core'
+		DAEMON_NAME='bitcoind'
 		TW_FILE='mmgen-tracking-wallet.dat'
-		DAEMON_NAME='bitcoind' ;;
-	BCH) echo 'Running Bitcoin ABC (BCH) client!'
+		if [ "$TESTNET" ]; then
+			TW_DIR="$HOME/.mmgen/testnet/tracking-wallet" PORT=18332
+			DATA_DIR="$HOME/.bitcoin/testnet3"
+		else
+			TW_DIR="$HOME/.mmgen/tracking-wallet" PORT=8332
+			DATA_DIR="$HOME/.bitcoin"
+		fi ;;
+	BCH) DAEMON_DESC='Bitcoin ABC (BCH)'
+		DAEMON_NAME='bitcoind-abc'
 		TW_FILE='mmgen-tracking-wallet-bch.dat'
 		ADD_ARGS+=" --datadir=$HOME/.bitcoin-abc --rpcallowip=127.0.0.1 --usecashaddr=0"
-		PORT_ARG=" --rpcbind=127.0.0.1:8442"
-		DAEMON_NAME='bitcoind-abc' ;;
-	LTC) echo 'Running Litecoin client!'
-		ADD_ARGS+=' --mempoolreplacement=1'
+		PORT_ARG=" --rpcbind=127.0.0.1:$PORT"
+		if [ "$TESTNET" ]; then PORT=18442; else PORT=8442; fi ;;
+	LTC) DAEMON_DESC='Litecoin'
+		DAEMON_NAME='litecoind'
 		TW_FILE='mmgen-tracking-wallet-ltc.dat'
-		DAEMON_NAME='litecoind' ;;
+		ADD_ARGS+=' --mempoolreplacement=1' ;;
 esac
 
+if [ "$PORT" -a "$(netstat -tnl | awk '{print $4}' | grep ":$PORT$")" ]; then
+		echo "${TESTNET:+Testnet }$DAEMON_DESC daemon is already running!"; exit
+fi
+
+if [ "$TW_DIR" ]; then
+	export TW_DIR TW_FILE DATA_DIR COIN TESTNET
+	. ~/scripts/include/functions.sh
+	relocate_tw_maybe
+fi
+[ "$RELOCATE_ONLY" ] && exit
+
+echo "Running ${TESTNET:+testnet }$DAEMON_DESC daemon!"
 [ "$ONION" ] && echo 'Running a Tor exclusively onion node!'
 [ "$TOR" ]   && echo 'Running a Tor non-onion node!'
+[ "$OFFLINE" ] && echo 'Running in offline mode'
 
 [ "$ONION" -a "$COIN" == 'BCH' ]   && ADD_ARGS+=" --bind=127.0.0.1:8443"
-[ "$TESTNET" -a "$COIN" == 'BCH' ] && PORT_ARG=" --rpcbind=127.0.0.1:18442"
-[ "$TESTNET" -a "$COIN" == 'B2X' ] && PORT_ARG=" --rpcbind=127.0.0.1:18338"
 
 if [ ! "$DB_CACHE_ARG" -a ! "$NO_DB_CACHE_ARG" ]; then
 	M=$(cat /proc/meminfo | grep MemAvailable | awk '{ print $2 }')
@@ -80,7 +100,7 @@ fi
 	DB_CACHE_ARG=
 }
 
-CMD="$DAEMON_NAME --daemon --wallet=$TW_FILE$DB_CACHE_ARG$NOLISTEN_ARG$ADD_ARGS$PORT_ARG"
+CMD="$DAEMON_NAME --daemon --wallet=${TW_DIR:-$TW_FILE}$DB_CACHE_ARG$NOLISTEN_ARG$ADD_ARGS$PORT_ARG"
 if [ "$TESTING" ]; then MSG='Would execute'; else MSG='Executing'; fi
 echo "$MSG: $CMD"
 [ ! "$TESTING" ] && eval $CMD

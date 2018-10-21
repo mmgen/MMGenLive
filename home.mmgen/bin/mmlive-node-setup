@@ -186,28 +186,6 @@ create_dirs_files_and_mount() {
 	done
 }
 
-TMP_DATA_DIR='/dev/shm/bitcoind-tmp-data-dir'
-TW_FILE='mmgen-tracking-wallet.dat'
-create_twallet() {
-	exec_or_die "rm -rf $TMP_DATA_DIR"
-	exec_or_die "mkdir -p $TMP_DATA_DIR"
-
-	exec_or_die "bitcoind --daemon --connect=0 --listen=0 --datadir=$TMP_DATA_DIR --wallet=$TW_FILE"
-
-	echo -n 'Generating tracking wallet.'
-	while true; do
-		sleep 2
-		echo -n '.'
-		grep -q 'dnsseed thread start' $TMP_DATA_DIR/debug.log && break
-	done
-	echo "done"
-	exec_or_die "sync"
-	exec_or_die "sleep 3"
-	exec_or_die "sync"
-	exec_or_die "bitcoin-cli --datadir=$TMP_DATA_DIR stop"
-	exec_or_die "sync"
-}
-MMGEN_DATA_DIR="$HOME/.mmgen"
 HOME_BITCOIN_DATA_DIR="$HOME/.bitcoin"
 BACKUP_BITCOIN_DATA_DIR="$HOME/.bitcoin.old"
 create_home_data_dir() {
@@ -229,17 +207,6 @@ create_home_data_dir() {
 			cp -n $BACKUP_BITCOIN_DATA_DIR$suf/bitcoin.conf $HOME_BITCOIN_DATA_DIR$suf 2>/dev/null
 		}
 	done
-}
-copy_and_link_twallet() {
-
-	echo "Copying tracking wallet to '$MMGEN_DATA_DIR'"
-	exec_or_die "mkdir -p $MMGEN_DATA_DIR"
-	# prompt before overwrite
-	exec_or_die "/bin/cp -i $TMP_DATA_DIR/$TW_FILE $MMGEN_DATA_DIR"
-
-	echo "Linking '$MMGEN_DATA_DIR/$TW_FILE' to '$HOME_BITCOIN_DATA_DIR'"
-	exec_or_die "(cd $HOME_BITCOIN_DATA_DIR && ln -sf $MMGEN_DATA_DIR/$TW_FILE)"
-
 }
 check_mounted() {
 	while true; do
@@ -282,8 +249,6 @@ do_setup_root() {
 do_setup_user() {
 	bmsg 'Entering user setup'
 	create_home_data_dir
-#	create_twallet
-#	copy_and_link_twallet
 	bmsg "Setup is finished!\nFor instructions on starting your node, see 'README.fullnode'"
 }
 

@@ -11,7 +11,7 @@ do
 		echo   "  USAGE:           $PROGNAME"
 		echo   "  OPTIONS:   '-h'   Print this help message"
 		echo   "             '-c'   Stop daemon for coin 'c' (default: $COIN, choices: $COINS)"
-		echo   "             '-e'   Stop a testnet client"
+		echo   "             '-e'   Stop a testnet daemon"
 		echo   "             '-t'   Testing mode.  Just print the command that would be executed"
 		exit ;;
 	c) COIN=${OPTARG^^}
@@ -39,6 +39,6 @@ CMD="$CLI_NAME$ADD_ARGS$PORT_ARG stop"
 if [ "$TESTING" ]; then
 	echo "Would execute: $CMD"
 else
-	echo "Stopping the $DESC client!"
+	echo "Stopping the ${TESTNET:+testnet }$DESC daemon!"
 	eval $CMD
 fi
