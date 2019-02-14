@@ -554,8 +554,8 @@ function chroot_install_mmgen_user() {
 	exec_or_die "su - $USER -c 'cd src/mmgen-* && ./setup.py build_ext'"
 
 	gecho "Installing MMGen on system"
- 	exec_or_die "(cd ~$USER/src/mmgen-* && python ./setup.py --quiet install)"
- 	exec_or_die "(cd ~$USER/src/mmgen-* && rm -rf build)"
+	exec_or_die "(cd ~$USER/src/mmgen-* && ./setup.py --quiet install)"
+	exec_or_die "(cd ~$USER/src/mmgen-* && rm -rf build)"
 
 	echo "Removing MMGen archive"
  	exec_or_die "rm -f /setup/$AR"
