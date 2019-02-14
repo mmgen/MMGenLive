@@ -68,7 +68,6 @@ declare -A DESCS=(
 	[install_host_dependencies]='install required packages on build machine'
 	[install_mmgen_dependencies]='install MMGen dependencies'
 	[reinstall_mmgen]='reinstall MMGen on the chroot system AND in user dir'
-	[install_vanitygen]='install Vanitygen'
 	[install_secp256k1]='install the secp256k1 library'
 	[test_mmgen]='test the MMGen wallet suite'
 	[mount_boot_chroot]='mount the USB drive boot partition on the chroot system'
@@ -518,18 +517,10 @@ function chroot_install_mmgen_dependencies() {
 	apt_get_install_chk 'locales'
 	do_gen_locales
 
-	apt_get_install_chk 'gcc libgmp-dev make python-pip python-dev python-pexpect python-ecdsa python-scrypt python-setuptools python-wheel libssl-dev alsa-utils elinks ruby-kramdown lynx unzip curl python-pycurl git libpcre3-dev python-crypto python-pysha3 python-nacl' '--no-install-recommends'
+	apt_get_install_chk 'gcc libgmp-dev make python3-pip python3-dev python3-pexpect python3-ecdsa python3-setuptools python3-wheel libssl-dev alsa-utils elinks ruby-kramdown lynx unzip curl python3-pycurl git libpcre3-dev python3-crypto python3-nacl' '--no-install-recommends'
 
-	gmsg 'Installing the Python ed25519ll module'
-	exec_or_die "$PIP install ed25519ll"
-}
-function chroot_install_vanitygen() {
-	exec_or_die 'cd /setup'
-	rm -rf 'vanitygen'
-	exec_or_die "$GIT clone https://github.com/samr7/vanitygen.git"
-	exec_or_die '(cd vanitygen; make)'
-	gmsg "Copying 'keyconv' executable to execution path"
-	exec_or_die 'cp vanitygen/keyconv /usr/local/bin'
+	gmsg 'Installing the Python scrypt, sha3 and ed25519ll modules'
+	exec_or_die "$PIP install scrypt pysha3 ed25519ll"
 }
 function chroot_install_secp256k1() {
 	apt_get_install_chk 'autoconf libtool'
@@ -801,10 +792,6 @@ function install_mmgen_dependencies() {
 	depends 'location=chroot' && return
 	exec_or_die "cp /etc/resolv.conf $CHROOT_DIR/etc"
 	chroot_install $FUNCNAME
-}
-function install_vanitygen() {
-	depends 'location=chroot' && return
-	chroot_install_no_apt $FUNCNAME
 }
 function install_secp256k1() {
 	depends 'location=chroot' && return
@@ -1897,7 +1884,6 @@ function build_chroot() {
 	depends virtual \
 		build_base \
 		install_mmgen_dependencies \
-		install_vanitygen \
 		install_secp256k1 \
 		install_bitcoind \
 		setup_user \

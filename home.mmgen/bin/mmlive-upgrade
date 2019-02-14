@@ -14,7 +14,7 @@ PROJ_NAME='MMLiveUpgrade'
 ONLINE=1
 CURL='curl' GIT='git' APT_GET='sudo apt-get --yes' LYNX='lynx'
 BUILD_SYSTEM='sudo ./build_system.sh'
-PIP='sudo -H pip'
+PIP='sudo -H pip3'
 REPO_ROOT='/setup/git/MMGenLive'
 
 declare -A REPOS=(
@@ -214,7 +214,15 @@ upgrade_bitcoind_maybe() {
 upgrade_mmgen_maybe() {
 	target_ver=$(cat $REPO_ROOT/upgrade/$MY_VER/ver_mmgen)
 	installed_ver=$(mmgen-tool --version | head -n1 | awk '{print $NF}')
+
 	[ "$target_ver" == "$installed_ver" ] && return 0
+
+	gecho "Upgrading MMGen dependencies"
+	exec_or_die "$APT_GET update"
+	exec_or_die "$APT_GET upgrade"
+	exec_or_die "$APT_GET install python3-pip python3-dev python3-pexpect python3-ecdsa python3-setuptools python3-wheel python3-crypto python3-nacl"
+	exec_or_die "$PIP install --upgrade pip scrypt pysha3 ed25519ll"
+
 	gecho "Upgrading MMGen to version '$target_ver'"
 	(
 		cd $REPO_ROOT
