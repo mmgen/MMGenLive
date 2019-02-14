@@ -78,42 +78,42 @@ daemon_upgrade_set_vars() {
 	case $COIN in
 		BTC)
 			DESC='Bitcoin Core'
-			VERSION='0.17.0'
+			VERSION='0.17.1'
 			# https://github.com/bitcoin-core/gitian.sigs
-			CHKSUM='9d6b472dc2aceedb1a974b93a3003a81b7e0265963bd2aa0acdcb17598215a4f'
+			CHKSUM='53ffca45809127c9ba33ce0080558634101ec49de5224b2998c489b6d0fc2b17' # 0.17.1
 			DAEMON_NAME='bitcoind' ;;
 		LTC)
 			DESC='Litecoin'
-			VERSION='0.15.1'
+			VERSION='0.16.3'
 			SUBVERSION=''
-			CHKSUM='77062f7bad781dd6667854b3c094dbf51094b33405c6cd25c36d07e0dd5e92e5'
+			# https://download.litecoin.org/litecoin-0.16.3/linux/litecoin-0.16.3-linux-signatures.asc (has sig)
+			CHKSUM='686d99d1746528648c2c54a1363d046436fd172beadaceea80bdc93043805994'
 			DLDIR_URL="https://download.litecoin.org/litecoin-${VERSION}/linux"
-			ARCHIVE='litecoin-0.15.1-x86_64-linux-gnu.tar.gz'
+			ARCHIVE="litecoin-${VERSION}-x86_64-linux-gnu.tar.gz"
 			DAEMON_NAME='litecoind' ;;
 		BCH)
 			DESC='Bitcoin ABC'
-			VERSION='0.18.2'
+			VERSION='0.18.8'
 			SUBVERSION='-abc'
-#			CHKSUM='5eeadea9c23069e08d18e0743f4a86a9774db7574197440c6d795fad5cad2084' # 0.16.2
-#			CHKSUM='aa8961e11139ea071e1884e9604e67611b48ee76cdf55d05f9a8dfe25d8feeae' # 0.17.2
-			CHKSUM='28d8511789a126aff16e256a03288948f2660c3c8cb0a4c809c5a8618a519a16' # 0.18.2
+			# https://download.bitcoinabc.org/0.18.8/jasonbcox-SHA256SUMS.0.18.8.asc (has sig)
+			CHKSUM='b58a04be81a6670aadce6c7d51f6afa00304fbd50dc70b47a74a93b814144ac1' # 0.18.8
 			DLDIR_URL="https://download.bitcoinabc.org/$VERSION/linux"
 			ARCHIVE="bitcoin-abc-${VERSION}-x86_64-linux-gnu.tar.gz"
 			DAEMON_NAME='bitcoind-abc' ;;
 		XMR)
 			DESC='Monerod'
-			VERSION='0.13.0.2'
-#			CHKSUM='72fe937aa2832a0079767914c27671436768ff3c486597c3353a8567d9547487' # 0.12.3.0
-			CHKSUM='a59fc0fffb325b4f92a5b500438bf340ddbf78e91581eb4df95ad2d5e5fb42a8' # 0.13.0.2
+			VERSION='0.13.0.4'
+			# https://getmonero.org/downloads/hashes.txt (has sig)
+			CHKSUM='693e1a0210201f65138ace679d1ab1928aca06bb6e679c20d8b4d2d8717e50d6' # 0.13.0.4
 			# https://getmonero.org/downloads/#linux
 			DLDIR_URL='https://dlsrc.getmonero.org/cli'
 			ARCHIVE="monero-linux-x64-v${VERSION}.tar.bz2"
 			DAEMON_NAME='monerod' ;;
 		ETH)
 			DESC='Parity'
-			VERSION='2.0.6'
-#			CHKSUM='792fc2fa2c5653194764218076d86f1c8ea81d3f9410892aae171ec94fe20b1e' # 1.11.7
-			CHKSUM='65c7f5c2bc8e4e7829d6eae99372f4cfef7149d4353712906ec3bfe039529621' # 2.0.6
+			VERSION='2.3.2'
+			# https://github.com/paritytech/parity-ethereum/releases/ (no signature!)
+			CHKSUM='9abd1aaa60d23aa5eb99d9392b203e837679a64f03662bf1057712d9c2cb70ad' # v2.3.2-beta
 			DLDIR_URL="https://releases.parity.io/v${VERSION}/x86_64-unknown-linux-gnu"
 #			ARCHIVE="parity_${VERSION}_ubuntu_amd64.deb" # 1.11.7
 			ARCHIVE='parity' # 2.0.6
