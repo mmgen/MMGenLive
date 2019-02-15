@@ -129,7 +129,7 @@ python_install() {
 	(
 		echo "Installing python repository '$1'"
 		cd $1
-		sudo python ./setup.py install
+		sudo ./setup.py install --force
 	)
 }
 
@@ -231,6 +231,13 @@ upgrade_mmgen_maybe() {
 	)
 }
 
+reinstall_node_tools_maybe() { # R8 - needed only for py2->py3 upgrade
+	target_ver=$(mmgen-tool --version | head -n1 | awk '{print $NF}')
+	installed_ver=$(mmnode-netrate --version | head -n1 | awk '{print $NF}')
+	[ "$target_ver" == "$installed_ver" ] && return 0
+	python_install ${REPOS['tools']% *}
+}
+
 # begin execution:
 init_vars
 
@@ -250,5 +257,6 @@ which privoxy >/dev/null || bash $REPO_ROOT/upgrade/$MY_VER/upgrade-c.sh # R8
 	expand_partition_maybe
 	upgrade_bitcoind_maybe
 	upgrade_mmgen_maybe
+	reinstall_node_tools_maybe # R8
 	do_version_upgrade
 }
