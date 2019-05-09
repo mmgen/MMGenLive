@@ -78,15 +78,17 @@ daemon_upgrade_set_vars() {
 	case $COIN in
 		BTC)
 			DESC='Bitcoin Core'
-			VERSION='0.17.1'
+			VERSION='0.18.0'
 			# https://github.com/bitcoin-core/gitian.sigs
-			CHKSUM='53ffca45809127c9ba33ce0080558634101ec49de5224b2998c489b6d0fc2b17' # 0.17.1
+			# https://bitcoin.org/bin/bitcoin-core-0.18.0/SHA256SUMS.asc
+			# https://bitcoincore.org/bin/bitcoin-core-0.18.0/SHA256SUMS.asc (signed,laanwj)
+			CHKSUM='5146ac5310133fbb01439666131588006543ab5364435b748ddfc95a8cb8d63f' # 0.18.0
 			DAEMON_NAME='bitcoind' ;;
 		LTC)
 			DESC='Litecoin'
 			VERSION='0.16.3'
 			SUBVERSION=''
-			# https://download.litecoin.org/litecoin-0.16.3/linux/litecoin-0.16.3-linux-signatures.asc (has sig)
+			# https://download.litecoin.org/litecoin-0.16.3/linux/litecoin-0.16.3-linux-signatures.asc (signed)
 			CHKSUM='686d99d1746528648c2c54a1363d046436fd172beadaceea80bdc93043805994'
 			DLDIR_URL="https://download.litecoin.org/litecoin-${VERSION}/linux"
 			ARCHIVE="litecoin-${VERSION}-x86_64-linux-gnu.tar.gz"
@@ -95,16 +97,16 @@ daemon_upgrade_set_vars() {
 			DESC='Bitcoin ABC'
 			VERSION='0.18.8'
 			SUBVERSION='-abc'
-			# https://download.bitcoinabc.org/0.18.8/jasonbcox-SHA256SUMS.0.18.8.asc (has sig)
+			# https://download.bitcoinabc.org/0.18.8/jasonbcox-SHA256SUMS.0.18.8.asc (signed)
 			CHKSUM='b58a04be81a6670aadce6c7d51f6afa00304fbd50dc70b47a74a93b814144ac1' # 0.18.8
 			DLDIR_URL="https://download.bitcoinabc.org/$VERSION/linux"
 			ARCHIVE="bitcoin-abc-${VERSION}-x86_64-linux-gnu.tar.gz"
 			DAEMON_NAME='bitcoind-abc' ;;
 		XMR)
 			DESC='Monerod'
-			VERSION='0.13.0.4'
-			# https://getmonero.org/downloads/hashes.txt (has sig)
-			CHKSUM='693e1a0210201f65138ace679d1ab1928aca06bb6e679c20d8b4d2d8717e50d6' # 0.13.0.4
+			VERSION='0.14.0.2'
+			# https://getmonero.org/downloads/hashes.txt (signed)
+			CHKSUM='4dd5cd9976eda6b33b16821e79e671527b78a1c9bfb3d973efe84b824642dd21' # 0.14.0.2
 			# https://getmonero.org/downloads/#linux
 			DLDIR_URL='https://dlsrc.getmonero.org/cli'
 			ARCHIVE="monero-linux-x64-v${VERSION}.tar.bz2"

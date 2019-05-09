@@ -804,7 +804,7 @@ function setup_user() {
 function get_bitcoind_dl_url { # sets DLDIR_URL, BITCOIND_URL, VER, ARCHIVE
 	VER=$1
 	gmsg "Finding download URL for bitcoind version '$VER'"
-	DLDIR_URL='https://bitcoin.org/bin/'
+	DLDIR_URL='https://bitcoin.org/bin/' # mirrored at: https://bitcoincore.org/bin/
 	TEXT=$(eval "$LYNX --listonly --nonumbers --dump $DLDIR_URL")
 #	echo "$TEXT" > /tmp/bitcoin.org.dl.txt
 #	TEXT=$(cat /tmp/bitcoin.org.dl.txt)
