@@ -79,7 +79,7 @@ if [ "$PORT" -a "$(netstat -tnl | awk '{print $4}' | grep ":$PORT$")" ]; then
 		echo "${TESTNET:+Testnet }$DAEMON_DESC daemon is already running!"; exit
 fi
 
-if [ "$TW_DIR" ]; then
+if [ "$TW_DIR" -a -e ~/scripts/include/functions.sh ]; then
 	export TW_DIR TW_FILE DATA_DIR COIN TESTNET
 	. ~/scripts/include/functions.sh
 	relocate_tw_maybe

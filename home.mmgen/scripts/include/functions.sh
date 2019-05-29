@@ -95,10 +95,10 @@ daemon_upgrade_set_vars() {
 			DAEMON_NAME='litecoind' ;;
 		BCH)
 			DESC='Bitcoin ABC'
-			VERSION='0.18.8'
+			VERSION='0.19.6'
 			SUBVERSION='-abc'
 			# https://download.bitcoinabc.org/0.18.8/jasonbcox-SHA256SUMS.0.18.8.asc (signed)
-			CHKSUM='b58a04be81a6670aadce6c7d51f6afa00304fbd50dc70b47a74a93b814144ac1' # 0.18.8
+			CHKSUM='b84aad1c0061fcafdef1b89cb75e2fc79be8f0a872fad8b1c40eebe59652a2d2'
 			DLDIR_URL="https://download.bitcoinabc.org/$VERSION/linux"
 			ARCHIVE="bitcoin-abc-${VERSION}-x86_64-linux-gnu.tar.gz"
 			DAEMON_NAME='bitcoind-abc' ;;
