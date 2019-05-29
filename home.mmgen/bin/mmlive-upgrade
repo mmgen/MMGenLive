@@ -167,7 +167,7 @@ do_version_upgrade() {
 		yecho "Your version of MMGenLive ($MY_VER) is outdated!"
 		yecho "Please download the latest version ($ver) from the MMGenLive project page"
 	fi
-	scripts=$(for s in $MY_VER/upgrade-?.sh; do s=${s#*upgrade-} s=${s%.sh}; echo -n " $s"; done)
+	scripts=$(for s in $MY_VER/upgrade-*.sh; do s=${s#*upgrade-} s=${s%.sh}; echo -n " $s"; done)
 	printf "Target revision: '%s'\n" $(echo $scripts | sed 's/.* //')
 	for s in $scripts; do
 		if [ $s '>' "$MY_REV" ]; then

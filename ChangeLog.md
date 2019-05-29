@@ -1,5 +1,8 @@
 ## ChangeLog
 
+### v0.0.7z1
++ Install Python 3 cryptography package
+
 ### v0.0.7y
 + No-OP
 
