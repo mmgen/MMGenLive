@@ -113,12 +113,12 @@ daemon_upgrade_set_vars() {
 			DAEMON_NAME='monerod' ;;
 		ETH)
 			DESC='Parity'
-			VERSION='2.3.2'
+			VERSION='2.4.7'
 			# https://github.com/paritytech/parity-ethereum/releases/ (no signature!)
-			CHKSUM='9abd1aaa60d23aa5eb99d9392b203e837679a64f03662bf1057712d9c2cb70ad' # v2.3.2-beta
-			DLDIR_URL="https://releases.parity.io/v${VERSION}/x86_64-unknown-linux-gnu"
-#			ARCHIVE="parity_${VERSION}_ubuntu_amd64.deb" # 1.11.7
-			ARCHIVE='parity' # 2.0.6
+			CHKSUM='c43b1b6e208cc505e75ec7e38e4b13064f9a5237e9deb4204d9ad158659b5bb5' # v2.5.2-beta (bad!)
+			CHKSUM='8c9211a202750d9d655c6ab819a86774e0fb4086f2c6ad2d14d2df0e45898f8a' # v2.4.7 stable
+			DLDIR_URL="https://releases.parity.io/ethereum/v${VERSION}/x86_64-unknown-linux-gnu"
+			ARCHIVE='parity'
 			DAEMON_NAME='parity' ;;
 	esac
 }
