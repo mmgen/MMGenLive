@@ -880,7 +880,7 @@ function unpack_and_install_bitcoind {
 	}
 	(
 		if [ ${ARCHIVE:0:6} = 'monero' ]; then
-			ARCH_DIR="unpack/monero-v$VER" BINS="monerod *-cli"
+			ARCH_DIR="unpack/monero-x86_64-linux-gnu" BINS="monerod *-cli"
 		else
 			ARCH_DIR="unpack/*/bin" BINS="*coind *-cli"
 		fi

@@ -104,9 +104,9 @@ daemon_upgrade_set_vars() {
 			DAEMON_NAME='bitcoind-abc' ;;
 		XMR)
 			DESC='Monerod'
-			VERSION='0.14.0.2'
+			VERSION='0.14.1.2'
 			# https://getmonero.org/downloads/hashes.txt (signed)
-			CHKSUM='4dd5cd9976eda6b33b16821e79e671527b78a1c9bfb3d973efe84b824642dd21' # 0.14.0.2
+			CHKSUM='a4d1ddb9a6f36fcb985a3c07101756f544a5c9f797edd0885dab4a9de27a6228' # 0.14.1.2
 			# https://getmonero.org/downloads/#linux
 			DLDIR_URL='https://dlsrc.getmonero.org/cli'
 			ARCHIVE="monero-linux-x64-v${VERSION}.tar.bz2"
