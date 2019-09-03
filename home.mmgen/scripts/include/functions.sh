@@ -78,11 +78,11 @@ daemon_upgrade_set_vars() {
 	case $COIN in
 		BTC)
 			DESC='Bitcoin Core'
-			VERSION='0.18.0'
+			VERSION='0.18.1'
 			# https://github.com/bitcoin-core/gitian.sigs
 			# https://bitcoin.org/bin/bitcoin-core-0.18.0/SHA256SUMS.asc
 			# https://bitcoincore.org/bin/bitcoin-core-0.18.0/SHA256SUMS.asc (signed,laanwj)
-			CHKSUM='5146ac5310133fbb01439666131588006543ab5364435b748ddfc95a8cb8d63f' # 0.18.0
+			CHKSUM='600d1db5e751fa85903e935a01a74f5cc57e1e7473c15fd3e17ed21e202cfe5a' # 0.18.1
 			DAEMON_NAME='bitcoind' ;;
 		LTC)
 			DESC='Litecoin'
