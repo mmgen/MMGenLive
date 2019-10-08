@@ -142,34 +142,6 @@ daemon_upgrade() {
 	)
 }
 
-relocate_tw_maybe() {
-	set -e
-	trap "recho 'An error occurred. Can not continue'" ERR
-
-	TW_SRC="$DATA_DIR/$TW_FILE"
-	DB_SRC="$DATA_DIR/db.log"
-	TW_DEST="$TW_DIR/wallet.dat"
-
-	[ -e "$TW_DEST" ] && return 0
-	mkdir -p "$TW_DIR"
-	[ -e "$TW_SRC" ] || return 0
-
-	gecho "UPGRADE NOTICE: relocating $COIN ${TESTNET:+testnet }tracking wallet to encrypted partition"
-	/bin/cp "$TW_SRC" "$TW_DEST"
-	/bin/cp "$DB_SRC" "$TW_DIR"
-	echo '  Your tracking wallet and associated files have been copied to the encrypted partition.'
-	echo -e "  New tracking wallet location: $YELLOW$TW_DEST$RESET"
-	echo -e "  ${BLUE}It's now recommended to securely delete these files at the old location.$RESET"
-	echo    "  If you choose not to do this now, you may do so later with the command:"
-	echo -e "      ${YELLOW}wipe $TW_SRC $DB_SRC$RESET"
-	echo -n "  Securely delete tracking wallet at old location? (y/N): "
-	read -n 1
-	case "$REPLY" in
-		y|Y) echo; wipe -f "$TW_SRC" "$DB_SRC" ;;
-		*)  [ "$REPLY" ] && echo; becho 'Skipping wallet delete at user request' ;;
-	esac
-}
-
 count_disk_passwds() {
 	dev=$(sudo cryptsetup status root_fs | grep device | awk '{print $2}')
 	sudo cryptsetup luksDump $dev | grep -i slot | grep ENABLED | wc -l

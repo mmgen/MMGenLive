@@ -1,12 +1,11 @@
 #!/bin/bash
 
 PROGNAME=`basename $0`
-DB_CACHE_ARG=
-NOLISTEN_ARG=' --listen=0'
+NOLISTEN_ARG='--listen=0'
 COINS='BTC BCH LTC'
 COIN='BTC'
 
-while getopts ha:c:d:DeimoORs:tT OPT
+while getopts ha:c:d:DeimoOs:tT OPT
 do
 	case "$OPT" in
 	h)  printf "  %-16s Start a coin daemon\n" "${PROGNAME^^}:"
@@ -29,13 +28,12 @@ do
 	a)  ADD_ARGS+=" $OPTARG" ;;
 	c)  COIN=${OPTARG^^}
 		echo $COINS | grep -q -- "\<$COIN\>" || { echo "'$COIN': unrecognized coin"; exit; } ;;
-	d)  DB_CACHE_ARG=" --dbcache=$OPTARG" ;;
+	d)  DB_CACHE_ARG="--dbcache=$OPTARG" ;;
 	D)  NO_DB_CACHE_ARG=1 ;;
 	e)  TESTNET=1 ADD_ARGS+=" --testnet=1" ;;
 	i)  ADD_ARGS+=" --txindex" ;;
 	m)  TWO_DAEMONS=1 ;;
 	o)  OFFLINE=1 ADD_ARGS+=" --connect=0" ;;
-	R)  RELOCATE_ONLY=1 ;;
 	s)  ADD_ARGS+=" --addnode=$OPTARG" ;;
 	t)  TESTING=1 ;;
 	O)  ONION=1 ADD_ARGS+=" --onlynet=onion --debug=tor" NOLISTEN_ARG= ;;
@@ -50,35 +48,25 @@ case "$COIN" in
 	BTC) DAEMON_DESC='Bitcoin Core'
 		DATA_DIR="$HOME/.bitcoin" PORT=8332
 		[ "$TESTNET" ] && DATA_DIR+="/testnet3" PORT=18332
-		DAEMON_NAME='bitcoind' SUF='' ;;
+		DAEMON_NAME='bitcoind' ;;
 	BCH) DAEMON_DESC='Bitcoin ABC (BCH)'
 		ADD_ARGS+=" --datadir=$HOME/.bitcoin-abc --rpcallowip=127.0.0.1 --usecashaddr=0"
 		DATA_DIR="$HOME/.bitcoin-abc" PORT=8442
 		[ "$TESTNET" ] && DATA_DIR+="/testnet3" PORT=18442
-		DAEMON_NAME='bitcoind-abc' SUF='-bch' ;;
+		DAEMON_NAME='bitcoind-abc' ;;
 	LTC) DAEMON_DESC='Litecoin'
 		ADD_ARGS+=' --mempoolreplacement=1'
 		DATA_DIR="$HOME/.litecoin" PORT=9332
 		[ "$TESTNET" ] && DATA_DIR+="/testnet4" PORT=19332
-		DAEMON_NAME='litecoind' SUF='-ltc' ;;
+		DAEMON_NAME='litecoind' ;;
 esac
 
-TW_FILE="mmgen-tracking-wallet$SUF.dat" # now used only in upgrade process
-TW_DIR="$HOME/.mmgen/${TESTNET:+testnet/}tracking-wallet$SUF"
-PORT_ARG=" --rpcbind=127.0.0.1:$PORT"
 
 [ ! "$TESTNET" -a ! -e "$DATA_DIR" ] && mkdir "$DATA_DIR"
 
 if [ "$PORT" -a "$(netstat -tnl | awk '{print $4}' | grep ":$PORT$")" ]; then
 		echo "${TESTNET:+Testnet }$DAEMON_DESC daemon is already running!"; exit
 fi
-
-if [ "$TW_DIR" -a -e ~/scripts/include/functions.sh ]; then
-	export TW_FILE TW_DIR DATA_DIR COIN TESTNET
-	. ~/scripts/include/functions.sh
-	relocate_tw_maybe
-fi
-[ "$RELOCATE_ONLY" ] && exit
 
 echo "Running ${TESTNET:+testnet }$DAEMON_DESC daemon!"
 [ "$ONION" ] && echo 'Running a Tor exclusively onion node!'
@@ -93,14 +81,22 @@ if [ ! "$DB_CACHE_ARG" -a ! "$NO_DB_CACHE_ARG" ]; then
 	[ "$TWO_DAEMONS" ] && { M=$((M / 2)); echo 'Reducing memory usage for dual-node setup'; }
 	[ $M -gt 5000 ]    && M=5000
 	[ $M -lt 300 ]     && M=
-	[ "$M" ] && DB_CACHE_ARG=" --dbcache=$M"
+	[ "$M" ] && DB_CACHE_ARG="--dbcache=$M"
 fi
 [ "$NO_DB_CACHE_ARG" ] && {
 	echo 'Using daemon defaults for --dbcache'
 	DB_CACHE_ARG=
 }
 
-CMD="$DAEMON_NAME --daemon --walletdir=$TW_DIR$DB_CACHE_ARG$NOLISTEN_ARG$ADD_ARGS$PORT_ARG"
+PRIV_DIR="$HOME/.mmgen/mmlive/private_data/${COIN,,}${TESTNET:+/testnet}"
+CMD="$DAEMON_NAME --daemon
+	--walletdir=$PRIV_DIR/tracking-wallet
+	--debuglogfile=$PRIV_DIR/debug.log
+	$DB_CACHE_ARG
+	$NOLISTEN_ARG
+	$ADD_ARGS
+	--rpcbind=127.0.0.1:$PORT"
+
 if [ "$TESTING" ]; then MSG='Would execute'; else MSG='Executing'; fi
-echo "$MSG: $CMD"
+echo $MSG: $CMD
 [ ! "$TESTING" ] && eval $CMD

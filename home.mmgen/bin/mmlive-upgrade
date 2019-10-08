@@ -204,6 +204,96 @@ expand_partition_maybe() {
 	mmlive-expand-partition && touch ~/.partition_expanded
 }
 
+upgrade_private_data_dirtree_maybe() {
+	[ -e "$old_twdir" ] && {
+		echo "Relocating ${coin^^} $net private data to '$privdir'"
+		mkdir -p $privdir
+		mv $old_twdir $twdir
+	}
+	return 0
+}
+
+relocate_and_wipe() {
+	src=$1 dest=$2 desc=$3 wipeargs=$4
+	[ "$wipeargs" ] && wipeargs+=' '
+	echo
+	gecho "UPGRADE NOTICE: relocating ${coin^^} $net $desc to encrypted partition"
+	/bin/cp "$src" "$dest"
+	echo "  Your $desc has been copied to the encrypted partition."
+	echo -e "  New location for this file:\n    $YELLOW$dest$RESET"
+	echo -e "  ${BLUE}It's now recommended to securely delete this file at the old location.$RESET"
+	echo    "  If you choose not to do this now, you may do so later with the command:"
+	echo -e "      ${YELLOW}wipe $wipeargs$src$RESET"
+	echo -n "  Securely delete $desc at old location? (y/N): "
+	read -n 1
+	case "$REPLY" in
+		y|Y) echo; wipe -f $wipeargs"$src" ;;
+		*)  [ "$REPLY" ] && echo; becho "Skipping delete of $desc at user request" ;;
+	esac
+	return 0
+}
+
+relocate_tw_maybe() {
+
+	twsrc="$datadir/mmgen-tracking-wallet$suf.dat"
+	twdest="$twdir/wallet.dat"
+	dbsrc="$datadir/db.log"
+	dbdest="$twdir/db.log"
+
+	[ -e "$twdest" ] && return 0
+	mkdir -p "$twdir"
+
+	[ -e "$twsrc" ] && relocate_and_wipe $twsrc $twdest 'tracking wallet'
+	[ -s "$dbsrc" ] && relocate_and_wipe $dbsrc $dbdest 'tracking wallet database log'
+
+	return 0
+}
+
+relocate_debug_log_maybe() {
+	debuglog_src="$datadir/debug.log"
+	debuglog_dest="$privdir/debug.log"
+
+	[ -e "$debuglog_dest" ] && return 0
+	mkdir -p "$privdir"
+
+	[ -e "$debuglog_src" ] && relocate_and_wipe $debuglog_src $debuglog_dest "'debug.log'" '-q'
+}
+
+set_private_data_upgrade_vars() {
+	while read coin name tn_datasubdir suf; do
+		if [ $1 == $coin ]; then
+			if [ $2 == 'mainnet' ]; then
+				datadir="$HOME/.$name"
+				old_twdir="$mmgen_home/tracking-wallet$suf"
+				privdir="$mmlive_privdir/$coin"
+			else
+				datadir="$HOME/.$name/$tn_datasubdir"
+				old_twdir="$mmgen_home/testnet/tracking-wallet$suf"
+				privdir="$mmlive_privdir/$coin/testnet"
+			fi
+			twdir="$privdir/tracking-wallet"
+			return 0
+		fi
+	done <<-EOF
+		btc bitcoin testnet3
+		bch bitcoin-abc testnet3 -bch
+		ltc litecoin testnet4 -ltc
+	EOF
+}
+
+upgrade_private_data_maybe() {
+	mmgen_home="$HOME/.mmgen"
+	mmlive_privdir="$mmgen_home/mmlive/private_data"
+	for coinsym in btc bch ltc; do
+		for net in mainnet testnet; do
+			set_private_data_upgrade_vars $coinsym $net
+			upgrade_private_data_dirtree_maybe
+			relocate_tw_maybe
+			relocate_debug_log_maybe
+		done
+	done
+}
+
 upgrade_bitcoind_maybe() {
 	COIN='BTC'
 	daemon_upgrade_set_vars
@@ -255,6 +345,7 @@ which privoxy >/dev/null || bash $REPO_ROOT/upgrade/$MY_VER/upgrade-c.sh # R8
 
 [ "$GIT_UPDATE_ONLY" ] || {
 	expand_partition_maybe
+	upgrade_private_data_maybe
 	upgrade_bitcoind_maybe
 	upgrade_mmgen_maybe
 	reinstall_node_tools_maybe # R8
