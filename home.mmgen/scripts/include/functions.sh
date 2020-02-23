@@ -78,45 +78,44 @@ daemon_upgrade_set_vars() {
 	case $COIN in
 		BTC)
 			DESC='Bitcoin Core'
-			VERSION='0.18.1'
+			VERSION='0.19.0.1'
 			# https://github.com/bitcoin-core/gitian.sigs
 			# https://bitcoin.org/bin/bitcoin-core-0.18.0/SHA256SUMS.asc
 			# https://bitcoincore.org/bin/bitcoin-core-0.18.0/SHA256SUMS.asc (signed,laanwj)
-			CHKSUM='600d1db5e751fa85903e935a01a74f5cc57e1e7473c15fd3e17ed21e202cfe5a' # 0.18.1
+			CHKSUM='732cc96ae2e5e25603edf76b8c8af976fe518dd925f7e674710c6c8ee5189204'
 			DAEMON_NAME='bitcoind' ;;
 		LTC)
 			DESC='Litecoin'
-			VERSION='0.16.3'
+			VERSION='0.17.1'
 			SUBVERSION=''
 			# https://download.litecoin.org/litecoin-0.16.3/linux/litecoin-0.16.3-linux-signatures.asc (signed)
-			CHKSUM='686d99d1746528648c2c54a1363d046436fd172beadaceea80bdc93043805994'
+			CHKSUM='9cab11ba75ea4fb64474d4fea5c5b6851f9a25fe9b1d4f7fc9c12b9f190fed07'
 			DLDIR_URL="https://download.litecoin.org/litecoin-${VERSION}/linux"
 			ARCHIVE="litecoin-${VERSION}-x86_64-linux-gnu.tar.gz"
 			DAEMON_NAME='litecoind' ;;
 		BCH)
 			DESC='Bitcoin ABC'
-			VERSION='0.19.6'
+			VERSION='0.21.0'
 			SUBVERSION='-abc'
 			# https://download.bitcoinabc.org/0.18.8/jasonbcox-SHA256SUMS.0.18.8.asc (signed)
-			CHKSUM='b84aad1c0061fcafdef1b89cb75e2fc79be8f0a872fad8b1c40eebe59652a2d2'
+			CHKSUM='2b7c717bd4a6d45fd029d6e087be30426d933828342c6e15c603c7fdeb3ff07d'
 			DLDIR_URL="https://download.bitcoinabc.org/$VERSION/linux"
 			ARCHIVE="bitcoin-abc-${VERSION}-x86_64-linux-gnu.tar.gz"
 			DAEMON_NAME='bitcoind-abc' ;;
 		XMR)
 			DESC='Monerod'
-			VERSION='0.14.1.2'
+			VERSION='0.15.0.1'
 			# https://getmonero.org/downloads/hashes.txt (signed)
-			CHKSUM='a4d1ddb9a6f36fcb985a3c07101756f544a5c9f797edd0885dab4a9de27a6228' # 0.14.1.2
+			CHKSUM='8d61f992a7e2dbc3d753470b4928b5bb9134ea14cf6f2973ba11d1600c0ce9ad'
 			# https://getmonero.org/downloads/#linux
 			DLDIR_URL='https://dlsrc.getmonero.org/cli'
 			ARCHIVE="monero-linux-x64-v${VERSION}.tar.bz2"
 			DAEMON_NAME='monerod' ;;
 		ETH)
 			DESC='Parity'
-			VERSION='2.4.7'
+			VERSION='2.7.2'
 			# https://github.com/paritytech/parity-ethereum/releases/ (no signature!)
-			CHKSUM='c43b1b6e208cc505e75ec7e38e4b13064f9a5237e9deb4204d9ad158659b5bb5' # v2.5.2-beta (bad!)
-			CHKSUM='8c9211a202750d9d655c6ab819a86774e0fb4086f2c6ad2d14d2df0e45898f8a' # v2.4.7 stable
+			CHKSUM='fe992f0c9b229a4406e82b9ff6d388f4acb4d6ce2782cb79b7bc379e7965ae34'
 			DLDIR_URL="https://releases.parity.io/ethereum/v${VERSION}/x86_64-unknown-linux-gnu"
 			ARCHIVE='parity'
 			DAEMON_NAME='parity' ;;

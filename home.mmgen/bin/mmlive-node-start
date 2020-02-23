@@ -64,7 +64,7 @@ esac
 
 [ ! "$TESTNET" -a ! -e "$DATA_DIR" ] && mkdir "$DATA_DIR"
 
-if [ "$PORT" -a "$(netstat -tnl | awk '{print $4}' | grep ":$PORT$")" ]; then
+if [ "$PORT" -a "$(ss -tnl | awk '{print $4}' | grep ":$PORT$")" ]; then
 		echo "${TESTNET:+Testnet }$DAEMON_DESC daemon is already running!"; exit
 fi
 

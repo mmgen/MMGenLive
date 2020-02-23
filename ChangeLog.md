@@ -1,5 +1,8 @@
 ## ChangeLog
 
+### v0.0.7z2
++ Upgrade Ubuntu from Xenial to Bionic
+
 ### v0.0.7z1
 + Install Python 3 cryptography package
 

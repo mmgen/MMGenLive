@@ -257,6 +257,7 @@ relocate_debug_log_maybe() {
 	mkdir -p "$privdir"
 
 	[ -e "$debuglog_src" ] && relocate_and_wipe $debuglog_src $debuglog_dest "'debug.log'" '-q'
+	return 0
 }
 
 set_private_data_upgrade_vars() {
